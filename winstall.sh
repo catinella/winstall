@@ -297,7 +297,7 @@ else
 			errAndExit "I cannot enter in the \"$TMPFOLDER\" directory" 145
 		fi
 	
-	else
+	elif [ "$cmd" = "install" ]; then
 		[ $VERBOSE -eq 1 ] && printTitle "Installation data registering..." 2
 		echo "$fileList" |tr ' ' '\n' > "${DATALOGFOLDER}/$PRJNAME" || \
 			errAndExit "I cannot update the installed packages DB" 145
