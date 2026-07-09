@@ -12,25 +12,47 @@
 # Author: Silvano Catinella <catinella@yahoo.com>
 #	
 # Description:
-#	It is a generic installer bash-script for POSIX systems.
-#	
-#	use: <path>/winstall.sh --cmd={install|uninstall|build|clean|pkg} \
-#		[--verbose] \
-#		[--tmpFolder=<dir>] \
-#		[--dataLogFolder=<dir>] \
-#		[--prefix=<dir>] \
-#		[--prjName=<string>]
+#	It is a generic installer bash-script for POSIX systems and it has been written to replace the typical INSTALL.sh script.
+#	winstall's features:
+#		- Software installation
+#		- Software removing
+#		- Self-installing package creation (NOT YET IMPLEMENTED)
+#
+#	To use the winstall.sh script, you must run it ub the root folder of your project, and respect the following syntax:
+#
+#		<path>/winstall.sh --cmd={install|uninstall|build|clean|pkg} \
+#			[--verbose] \
+#			[--tmpFolder=<dir>] \
+#			[--dataLogFolder=<dir>] \
+#			[--prefix=<dir>] \
+#			[--prjName=<string>]
+#
+#	How to set your software to be installed by winstall
+#	====================================================
+#	In order to find and recognize the files you want install (or packaging), the process looks for files where the name
+#	match with the "winstall_<label>.conf" pattern. Every file of them is associated to the folder that contains it, and
+#	in this file winstall can find all information to complete the following tasks:
+#
+#		1) How to build the files
+#		2) Which files will be installed (or copied into the package) and where they will be stored
+#		4) How to set the files properties
+#		5) how to clean the folder (--cmd=clean)
 #
 #	How to create a winstall_<label>.conf file:
-#	===========================================
 #		BUILDER="<commands>"      # Exe-file or commands-sequence to build the files you want to install (eg. make all)
-#		FILES="lib*.a minute.h"   # Files you want to install
-#		TGTPATH="$PREFIX/lib"     # Folder where the files will be stored
-#		CHMOD="644"               # File permissions
-#		CHOWN="root"              # File owner
-#		CLEANER="<commands>"      # Exe-file or commands-sequence to remove the produced files
+#		FILES="<files list>"      # Files you want to install (eg. lib*.a file.h)
+#		TGTPATH="<path>"          # Folder where the files will be stored (eg. lib)
+#		CHMOD="<n1><n2><n3>"      # File permissions
+#		CHOWN="<user>"            # File owner
+#		CLEANER="<commands>"      # Exe-file or commands-sequence to remove the produced files (eg. make cleanall)
 #	
-#	
+#	winstall's main-configuration file and optional values:
+#	=======================================================
+#	Some other optional information can be provided wit the winstall.conf file. It MUST be stored in the main folder of your
+#	software project, and must respect the following syntax:
+#		PRJNAME=<string>          # It can be set also with --prjName=<string> file's argument
+#		PREINST=<exec-file>       # The script to run before the files copying step
+#		POSTINST=<exec-file>      # The script to run after the files copying step
 #	
 #	
 #-------------------------------------------------------------------------------------------------------------------------------
@@ -130,6 +152,16 @@ CONFFILE="$callerPWD/winstall.conf"
 cmd=""
 err=0
 
+
+#
+# Configuration file reading
+#
+[ -e "$CONFFILE" ] && {
+	[ $VERBOSE -eq 1 ] && echo "[i] configuration file reading"
+	source "$CONFFILE"
+}
+
+
 #
 # Argument parsing
 #
@@ -189,19 +221,14 @@ done
 
 [ $VERBOSE -eq 1 ] && printTitle "winstall" 1
 
+
 #
 # Project name loading
 #
 [ "$cmd" = "install" -o "$cmd" = "pkg" -o "$cmd" = "uninstall" ] && {
-	[ -z "$PRJNAME" ] && {
-		[ $VERBOSE -eq 1 ] && echo "[i] configuration file reading"
-		
-		[ -e "$CONFFILE" ] && source "$CONFFILE"
-		
-		[ -z "$PRJNAME" ] && {	
-			echo "ERROR! I cannot get the name of the project|package"
-			exit 134
-		}
+	[ -z "$PRJNAME" ] && {	
+		echo "ERROR! I cannot get the name of the project|package"
+		exit 134
 	}
 	[ $VERBOSE -eq 1 ] && echo "[i] Software name: $PRJNAME"
 }
@@ -237,6 +264,12 @@ if [ "$cmd" = "uninstall" ]; then
 	fi
 
 else
+	# Pre-install script
+	[ "$cmd" = "install" -a -n "$PREINST" ] && {
+		[ $VERBOSE -eq 1 ] && printTitle "Pre installation script starting" 2
+		./$PREINST
+	}
+
 	for row in $(find . -name "winstall_*.conf")
 	do
 		dir=${row%/winstall_*.conf}
@@ -298,9 +331,17 @@ else
 		fi
 	
 	elif [ "$cmd" = "install" ]; then
+		err=0
+
 		[ $VERBOSE -eq 1 ] && printTitle "Installation data registering..." 2
-		echo "$fileList" |tr ' ' '\n' > "${DATALOGFOLDER}/$PRJNAME" || \
-			errAndExit "I cannot update the installed packages DB" 145
+		echo "$fileList" |tr ' ' '\n' > "${DATALOGFOLDER}/$PRJNAME" || err=150
+	
+		[ "$cmd" = "install" -a -n "$POSTINST" ] && {
+			[ $VERBOSE -eq 1 ] && printTitle "Post installation script starting" 2
+			./$POSTINST
+		}
+		
+		[ $err -eq 0 ] || errAndExit "I cannot update the installed packages DB" $err
 	fi
 fi
 	
