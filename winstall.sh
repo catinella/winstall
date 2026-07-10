@@ -18,7 +18,7 @@
 #		- Software removing
 #		- Self-installing package creation (NOT YET IMPLEMENTED)
 #
-#	To use the winstall.sh script, you must run it ub the root folder of your project, and respect the following syntax:
+#	To use the winstall.sh script, you must run it with the root folder of your project, and respect the following syntax:
 #
 #		<path>/winstall.sh --cmd={install|uninstall|build|clean|pkg} \
 #			[--verbose] \
@@ -29,14 +29,14 @@
 #
 #	How to set your software to be installed by winstall
 #	====================================================
-#	In order to find and recognize the files you want install (or packaging), the process looks for files where the name
-#	match with the "winstall_<label>.conf" pattern. Every file of them is associated to the folder that contains it, and
-#	in this file winstall can find all information to complete the following tasks:
+#	In order to find and recognize the files you want install (or packaging), the process looks for configuration files where
+#	their names match with the "winstall_<label>.conf" pattern. Everyone of them is associated to the folder that contains it,
+#	and in these files winstall process will have to find the following information:
 #
 #		1) How to build the files
 #		2) Which files will be installed (or copied into the package) and where they will be stored
-#		4) How to set the files properties
-#		5) how to clean the folder (--cmd=clean)
+#		4) The file properties to set
+#		5) how to clean the folder (used by --cmd=clean option)
 #
 #	How to create a winstall_<label>.conf file:
 #		BUILDER="<commands>"      # Exe-file or commands-sequence to build the files you want to install (eg. make all)
