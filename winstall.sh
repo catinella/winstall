@@ -323,6 +323,22 @@ else
 	
 	if [ "$cmd" = "pkg" ]; then
 		[ $VERBOSE -eq 1 ] && printTitle "pkg construction..." 2
+		[ -n "$POSTINST" -o -n "$PREINST" ] && {
+			if mkdir "$TMPFOLDER/winstall" ; then
+				[ -n "$POSTINST" ] && {
+					[ $VERBOSE -eq 1 ] && echo "\"$POSTINST\" adding to the package"
+					cp "$callerPWD/$POSTINST" "$TMPFOLDER/winstall/."
+					chmod 750 "$TMPFOLDER/winstall/${POSTINST##*/}"
+				}
+				[ -n "$PREINST" ] && {
+					[ $VERBOSE -eq 1 ] && echo "\"$PREINST\" adding to the package"
+					cp "$callerPWD/$PREINST" "$TMPFOLDER/winstall/."
+					chmod 750 "$TMPFOLDER/winstall/${PREINST##*/}"
+				}
+			else
+				errAndExit "I cannot create the \"$TMPFOLDER/winstall\" dir" 164
+			fi
+		}
 		if cd "$TMPFOLDER" ; then
 			#echo "[i] Temp directory: $PWD"
 			tar cvzf "${callerPWD}/${PRJNAME}.tgz" * || \
