@@ -147,6 +147,8 @@ PREFIX="/usr/local"
 DATALOGFOLDER="/var/local/winstall"
 TMPFOLDER="/tmp/winstall"
 PRJNAME=""
+PREINST=""
+POSTINST=""
 VERBOSE=0
 CONFFILE="$callerPWD/winstall.conf"
 cmd=""
@@ -267,7 +269,7 @@ else
 	# Pre-install script
 	[ "$cmd" = "install" -a -n "$PREINST" ] && {
 		[ $VERBOSE -eq 1 ] && printTitle "Pre installation script starting" 2
-		./$PREINST
+		PREFIX="$PREFIX" DATALOGFOLDER="$DATALOGFOLDER" TMPFOLDER="$TMPFOLDER" PRJNAME="$PRJNAME" ./$PREINST
 	}
 
 	for row in $(find . -name "winstall_*.conf")
@@ -338,7 +340,7 @@ else
 	
 		[ "$cmd" = "install" -a -n "$POSTINST" ] && {
 			[ $VERBOSE -eq 1 ] && printTitle "Post installation script starting" 2
-			./$POSTINST
+			PREFIX="$PREFIX" DATALOGFOLDER="$DATALOGFOLDER" TMPFOLDER="$TMPFOLDER" PRJNAME="$PRJNAME" ./$POSTINST
 		}
 		
 		[ $err -eq 0 ] || errAndExit "I cannot update the installed packages DB" $err
