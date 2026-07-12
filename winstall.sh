@@ -18,7 +18,7 @@
 #		- Software removing
 #		- Self-installing package creation (NOT YET IMPLEMENTED)
 #
-#	To use the winstall.sh script, you must run it ub the root folder of your project, and respect the following syntax:
+#	To use the winstall.sh script, you must run it with the root folder of your project, and respect the following syntax:
 #
 #		<path>/winstall.sh --cmd={install|uninstall|build|clean|pkg} \
 #			[--verbose] \
@@ -29,14 +29,14 @@
 #
 #	How to set your software to be installed by winstall
 #	====================================================
-#	In order to find and recognize the files you want install (or packaging), the process looks for files where the name
-#	match with the "winstall_<label>.conf" pattern. Every file of them is associated to the folder that contains it, and
-#	in this file winstall can find all information to complete the following tasks:
+#	In order to find and recognize the files you want install (or packaging), the process looks for configuration files where
+#	their names match with the "winstall_<label>.conf" pattern. Everyone of them is associated to the folder that contains it,
+#	and in these files winstall process will have to find the following information:
 #
 #		1) How to build the files
 #		2) Which files will be installed (or copied into the package) and where they will be stored
-#		4) How to set the files properties
-#		5) how to clean the folder (--cmd=clean)
+#		4) The file properties to set
+#		5) how to clean the folder (used by --cmd=clean option)
 #
 #	How to create a winstall_<label>.conf file:
 #		BUILDER="<commands>"      # Exe-file or commands-sequence to build the files you want to install (eg. make all)
@@ -147,6 +147,8 @@ PREFIX="/usr/local"
 DATALOGFOLDER="/var/local/winstall"
 TMPFOLDER="/tmp/winstall"
 PRJNAME=""
+PREINST=""
+POSTINST=""
 VERBOSE=0
 CONFFILE="$callerPWD/winstall.conf"
 cmd=""
@@ -267,7 +269,7 @@ else
 	# Pre-install script
 	[ "$cmd" = "install" -a -n "$PREINST" ] && {
 		[ $VERBOSE -eq 1 ] && printTitle "Pre installation script starting" 2
-		./$PREINST
+		PREFIX="$PREFIX" DATALOGFOLDER="$DATALOGFOLDER" TMPFOLDER="$TMPFOLDER" PRJNAME="$PRJNAME" ./$PREINST
 	}
 
 	for row in $(find . -name "winstall_*.conf")
@@ -321,6 +323,22 @@ else
 	
 	if [ "$cmd" = "pkg" ]; then
 		[ $VERBOSE -eq 1 ] && printTitle "pkg construction..." 2
+		[ -n "$POSTINST" -o -n "$PREINST" ] && {
+			if mkdir "$TMPFOLDER/winstall" ; then
+				[ -n "$POSTINST" ] && {
+					[ $VERBOSE -eq 1 ] && echo "\"$POSTINST\" adding to the package"
+					cp "$callerPWD/$POSTINST" "$TMPFOLDER/winstall/."
+					chmod 750 "$TMPFOLDER/winstall/${POSTINST##*/}"
+				}
+				[ -n "$PREINST" ] && {
+					[ $VERBOSE -eq 1 ] && echo "\"$PREINST\" adding to the package"
+					cp "$callerPWD/$PREINST" "$TMPFOLDER/winstall/."
+					chmod 750 "$TMPFOLDER/winstall/${PREINST##*/}"
+				}
+			else
+				errAndExit "I cannot create the \"$TMPFOLDER/winstall\" dir" 164
+			fi
+		}
 		if cd "$TMPFOLDER" ; then
 			#echo "[i] Temp directory: $PWD"
 			tar cvzf "${callerPWD}/${PRJNAME}.tgz" * || \
@@ -338,7 +356,7 @@ else
 	
 		[ "$cmd" = "install" -a -n "$POSTINST" ] && {
 			[ $VERBOSE -eq 1 ] && printTitle "Post installation script starting" 2
-			./$POSTINST
+			PREFIX="$PREFIX" DATALOGFOLDER="$DATALOGFOLDER" TMPFOLDER="$TMPFOLDER" PRJNAME="$PRJNAME" ./$POSTINST
 		}
 		
 		[ $err -eq 0 ] || errAndExit "I cannot update the installed packages DB" $err
