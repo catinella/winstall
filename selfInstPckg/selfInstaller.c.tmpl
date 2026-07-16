@@ -6,13 +6,14 @@
 //                                                \_/\_/     |___|_| |_|___/\__\__,_|_|_|
 //                                                                                       
 //	
-// Filename: selfInstaller.c
+// Filename: selfInstaller.c.tmpl
 //
 // Author: Silvano Catinella <catinella@yahoo.com>
 //	
 // Description:
-//	This code allows you to get a self-installer TGZ archive.
-//	
+//	This code is the brain of the self-installed package. Thank this code, the bin-package will  provide the following CLI:
+//		<pkg bin-file> {--install|--uninstall} [--verbose] [--hwelp]
+//
 ------------------------------------------------------------------------------------------------------------------------------*/
 #include <stdbool.h>
 #include <stdio.h>
@@ -24,10 +25,10 @@
 #include <getopt.h>
 #include ##WINSTALLCONF##
 
-#ifndef PREFIX
-#define PREFIX "/usr/local"
-#endif
-
+//
+// Installed packages data files folder
+//	(It is used by the --install and --uninstall optios)
+//
 #ifndef DATALOGFOLDER
 #define DATALOGFOLDER "/var/local/winstall"
 #endif
@@ -36,6 +37,9 @@
 #define TMPFOLDER "/tmp/winstall"
 #endif
 
+//
+// ASCII Art bannes
+//
 #ifndef BANNER_DATA
 #define BANNER_DATA {}
 #endif
@@ -44,14 +48,24 @@
 #define BANNER_SIZE 0
 #endif
 
+//
+// Project name.
+//	(It is used for the bin-package file name and for the installed files db)
+//
 #ifndef PRJNAME
 #error "ERROR! \"PRJNAME\" symbol has not been defined"
 #endif
 
+//
+// Pre-install script
+//
 #ifndef PREINST
 #define PREINST  ""
 #endif
 
+//
+// Post-install script
+//
 #ifndef POSTINST
 #define POSTINST ""
 #endif
@@ -133,6 +147,7 @@ int main (int argc, char *argv[]) {
 	int     option_index = 0;
 	int     ec = 0;
 	wCmd_t  cmd = _last;
+	bool    verboseFlag = false;
 
 #if BANNER_SIZE == 0
 	char banner[BANNER_SIZE];
@@ -143,6 +158,7 @@ int main (int argc, char *argv[]) {
 	struct option optionsPool[] = {
 		{"install",   no_argument, NULL, 0},
 		{"uninstall", no_argument, NULL, 0},
+		{"verbose",      no_argument, NULL, 0},
 		{"help",      no_argument, NULL, 0},
 		{0, 0, 0, 0}
 	};
