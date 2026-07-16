@@ -1,0 +1,241 @@
+/*------------------------------------------------------------------------------------------------------------------------------
+//                                             __        __   ___           _        _ _ 
+//                                             \ \      / /  |_ _|_ __  ___| |_ __ _| | |
+//                                              \ \ /\ / /____| || '_ \/ __| __/ _` | | |
+//                                               \ V  V /_____| || | | \__ \ || (_| | | |
+//                                                \_/\_/     |___|_| |_|___/\__\__,_|_|_|
+//                                                                                       
+//	
+// Filename: selfInstaller.c
+//
+// Author: Silvano Catinella <catinella@yahoo.com>
+//	
+// Description:
+//	This code allows you to get a self-installer TGZ archive.
+//	
+------------------------------------------------------------------------------------------------------------------------------*/
+#include <stdbool.h>
+#include <stdio.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <string.h>
+#include <stdlib.h>
+#include <limits.h>
+#include <getopt.h>
+#include ##WINSTALLCONF##
+
+#ifndef PREFIX
+#define PREFIX "/usr/local"
+#endif
+
+#ifndef DATALOGFOLDER
+#define DATALOGFOLDER "/var/local/winstall"
+#endif
+
+#ifndef TMPFOLDER
+#define TMPFOLDER "/tmp/winstall"
+#endif
+
+#ifndef BANNER_DATA
+#define BANNER_DATA {}
+#endif
+
+#ifndef BANNER_SIZE
+#define BANNER_SIZE 0
+#endif
+
+#ifndef PRJNAME
+#error "ERROR! \"PRJNAME\" symbol has not been defined"
+#endif
+
+#ifndef PREINST
+#define PREINST  ""
+#endif
+
+#ifndef POSTINST
+#define POSTINST ""
+#endif
+
+#define PATH_SPLITTER '/'
+
+typedef enum {
+	W_INSTALL,
+	W_UNINSTALL,
+	W_HELP,
+	_last
+} wCmd_t;
+
+
+void printBanner (const char *dataset, unsigned int size) {
+	
+	
+	return;
+}
+
+void pathDeleting (char *filename) {
+	//
+	// Description:
+	//	It accepts a filename as argument and remove all its path (eg. local/share/object.txt --> object.txt)
+	//
+	unsigned int pos = 0;
+	unsigned int origLen = strlen(filename);
+	
+	for (unsigned int x = 0; x < origLen; x++)
+		if (filename[x] == '/') pos = x;
+	
+	if (pos > 0) {
+		unsigned int x;
+		for (x = 0; x < (origLen - (pos + 1)); x++)
+			filename[x] = filename[x + pos + 1];
+		filename[x] = '\0';
+	}
+	
+	return;
+}
+
+void helpProc (const char *myname, int ec) {
+	//
+	// Description:
+	//	It prints a simple help message
+	//
+	printf("Use:  %s {--install|--uninstall|--help}\n", myname);
+	if (ec != 0) exit(ec);
+	return;
+}
+
+bool filesGlue (const char *patha, const char *pathb, char *res) {
+	//
+	// Description:
+	//	It allows you to merge two pathes (eg. "/etc" + "passwd" ..> "/etc/passwd")
+	//
+	size_t size = strlen(patha);
+	bool   ec   = true;
+
+	if (size >= PATH_MAX || strlen(pathb) >= PATH_MAX)
+		ec = false;
+	
+	else {
+		strcpy(res, patha);
+		if (res[size-1] != PATH_SPLITTER) {
+			res[size]   = '/';
+			res[size+1] = '\0';
+		}
+		strcat(res, pathb);
+	}
+
+	return(ec);
+}
+
+//------------------------------------------------------------------------------------------------------------------------------
+//                                                     M A I N
+//------------------------------------------------------------------------------------------------------------------------------
+int main (int argc, char *argv[]) {
+	int     option_index = 0;
+	int     ec = 0;
+	wCmd_t  cmd = _last;
+
+#if BANNER_SIZE == 0
+	char banner[BANNER_SIZE];
+#else
+	char banner[BANNER_SIZE] = BANNER ;
+#endif
+
+	struct option optionsPool[] = {
+		{"install",   no_argument, NULL, 0},
+		{"uninstall", no_argument, NULL, 0},
+		{"help",      no_argument, NULL, 0},
+		{0, 0, 0, 0}
+	};
+	
+	while (ec == 0) {
+		ec = getopt_long (argc, argv, "", optionsPool, &option_index);
+
+		if (ec == 0) {
+
+			//
+			// File's arguments collecting
+			//
+			switch (option_index) {
+				case 0: 
+					cmd = W_INSTALL;
+				break;
+
+				case 1: 
+					cmd = W_UNINSTALL;
+				break;
+
+				case 2:
+					cmd = W_HELP;
+				break;
+			}
+		}
+	}
+
+	if (cmd == _last)
+		// ERROR!
+		helpProc(argv[0], 127);
+	
+	else if (cmd == W_HELP)
+		helpProc(argv[0], 0);
+
+	else if (cmd == W_UNINSTALL) {
+		struct stat statbuf;
+		char   pckgFilename[PATH_MAX];
+
+		*pckgFilename = '\0';
+		printBanner(banner, BANNER_SIZE);
+
+		// Checking for the pre-defined paths
+		if (filesGlue(DATALOGFOLDER, PRJNAME, pckgFilename) == false) {
+			fprintf(stderr, "ERROR! in the configured data path\n");
+			exit(131);
+
+		// Checking for the DATALOGFOLDER folder
+		} else if (stat(DATALOGFOLDER, &statbuf) < 0) {
+			fprintf(stderr, "ERROR! The \"%s\" folder does not exist\n", DATALOGFOLDER);
+			exit(133);
+		
+		} else if (S_ISDIR(statbuf.st_mode) != 0) {
+			fprintf(stderr, "ERROR! The \"%s\" is not a valid directory\n", DATALOGFOLDER);
+			exit(135);
+		
+		// Checking for the DATALOGFOLDER/PRJNAME file
+		} else if (stat(pckgFilename, &statbuf) < 0) {
+			fprintf(stdout, "WARNING! The \"%s\" software is not installed\n", PRJNAME);
+			exit(0);
+
+		} else {
+			FILE *fh = fopen(pckgFilename, "r");
+
+			// TODO: Files removing
+
+			fclose(fh);
+			
+			// Package info file removing
+			if (unlink(pckgFilename) < 0) { 
+				fprintf(stderr, "ERROR! I cannot remove the \"%s\" file\n", pckgFilename);
+				exit(137);
+			}
+		}
+
+	} else if (cmd == W_INSTALL) {
+		// TODO: Getting my size
+
+		chdir("/");
+		// TODO: extract pre-install script
+
+		// TODO: pre-install script execution
+		
+		// TODO: Package's files extraction....
+
+		// TODO: Package's info file creation
+
+		// TODO: Post install script execution
+
+		// TODO: installer's folder removing
+
+		//cd -
+	}
+
+	return(0);
+}
