@@ -21,11 +21,18 @@ OBJs := $(SRCs:.c=.o)
 EXEs := $(SRCs:.c=)
 
 MINUTE_PRFX ?= /usr/local
+GDB         ?= 0
 
 INCLUDE = -I. -I../ -I$(MINUTE_PRFX)/include
 
 CODEGEN = $(MINUTE_PRFX)/share/minute/minute_cCodeGenerator.py
 LIB     = -L$(MINUTE_PRFX)/lib -lMinuteC
+
+ifeq ($(GDB), 0)
+CFLAGS = -Wall -O2
+else
+CFLAGS = -Wall -g -O0
+endif
 
 .PHONY: clean cleanall
 
@@ -33,11 +40,11 @@ aLL:			$(EXEs)
 
 utest_%:		utest_%.o %.o
 			@echo "[ LD ] $@"
-			@gcc -Wall -o $@ $< $(LIB)
+			@gcc -Wall -o $@ $^ $(LIB)
 
 utest_%.o:		utest_%.c utest_%__main.sgc
 			@echo "[ CC ] $@"
-			@gcc -Wall -o $@ $(INCLUDE) -c $<
+			@gcc $(CFLAGS) -o $@ $(INCLUDE) -c $<
 
 %__main.sgc:	%.c
 			@echo "[SCRIPT] $@"
@@ -45,7 +52,7 @@ utest_%.o:		utest_%.c utest_%__main.sgc
 
 %.o:			../%.c ../%.h
 			@echo "[ CC* ] $@"
-			@gcc -Wall -o $@ $(INCLUDE) -c $<
+			@gcc $(CFLAGS) -o $@ $(INCLUDE) -c $<
 
 clean:
 			@echo "[CLEAN]"
