@@ -22,6 +22,7 @@ EXEs := $(SRCs:.c=)
 
 MINUTE_PRFX ?= /usr/local
 GDB         ?= 0
+TEXTFILE    ?= /etc/passwd
 
 INCLUDE = -I. -I../ -I$(MINUTE_PRFX)/include
 
@@ -38,17 +39,23 @@ endif
 
 aLL:			$(EXEs)
 
+utest_elfReading:	utest_elfReading.o elfReading.o
+			@echo "[ LD* ] $@"
+			@gcc -Wall -o $@ $^ $(LIB)
+			@echo "[ ADD ] $(TEXTFILE)"
+			@cat $(TEXTFILE) >> $@
+
 utest_%:		utest_%.o %.o
 			@echo "[ LD ] $@"
 			@gcc -Wall -o $@ $^ $(LIB)
 
 utest_%.o:		utest_%.c utest_%__main.sgc
 			@echo "[ CC ] $@"
-			@gcc $(CFLAGS) -o $@ $(INCLUDE) -c $<
+			@gcc $(CFLAGS) -o $@ $(INCLUDE) "-DTEXTFILE=\"$(TEXTFILE)\"" -c $<
 
 %__main.sgc:	%.c
 			@echo "[SCRIPT] $@"
-			@$(CODEGEN) --srcFilename=$< --tgtFilename=$@ --verbose
+			@$(CODEGEN) --srcFilename=$< --tgtFilename=$@
 
 %.o:			../%.c ../%.h
 			@echo "[ CC* ] $@"
