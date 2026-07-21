@@ -34,19 +34,21 @@
 #		WINSTALLCONF=<file.h> PRJNAME="<string>" TGZ="<file-name> make
 #
 #-------------------------------------------------------------------------------------------------------------------------------
+SRCs := $(shell ls *.c)
+OBJs := $(SRCs:.c=.o)
 
 .PHONY: clean
 
 
 all:			$(PRJNAME).bin
 
-selfInstaller:	selfInstaller.o
+selfInstaller:	selfInstaller.o $(OBJs);
 			@echo "[ LD ] $@"
 			@gcc -Wall -o $@ $<
 
 %.o:			%.c
 			@echo "[ CC ] $@"
-			@gcc -Wall -o $@ -c $<
+			@gcc -Wall -o $@ -I. -c $<
 
 %.c:			%.c.tmpl
 			@echo "[SCRIPT] $@"
@@ -68,7 +70,7 @@ $(PRJNAME).bin:	selfInstaller $(TGZ)
 
 clean:
 			@echo "[CLEAN]"
-			@rm -fv selfInstaller.c selfInstaller.o selfInstaller
+			@rm -fv selfInstaller.c *.o selfInstaller
 
 cleanall:		clean
 			@rm -fv $(PRJNAME).bin
