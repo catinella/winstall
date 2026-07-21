@@ -149,8 +149,8 @@ static bool __sizeCalculation (FILE *fh, arch_t arch, const void *elfStruct, uns
 			elf_end = 0;
 
 			if (
-				(arch = x64bit && fseeko(fh, ehdr64->e_shoff, SEEK_SET) != 0) ||
-				(arch = x32bit && fseeko(fh, ehdr32->e_shoff, SEEK_SET) != 0) 
+				(arch == x64bit && fseeko(fh, ehdr64->e_shoff, SEEK_SET) != 0) ||
+				(arch == x32bit && fseeko(fh, ehdr32->e_shoff, SEEK_SET) != 0) 
 			) {
 				// ERROR!
 				out = false;
@@ -194,7 +194,9 @@ static bool __sizeCalculation (FILE *fh, arch_t arch, const void *elfStruct, uns
 	return(out);
 }
 
-
+//------------------------------------------------------------------------------------------------------------------------------
+//                                           P U B L I C   F U N C T I O N S
+//------------------------------------------------------------------------------------------------------------------------------
 int get_elf_size() {
 	//
 	// Description:
@@ -261,7 +263,7 @@ int get_elf_size() {
 				// ERROR!
 				err = -1;
 
-			} else if (__sizeCalculation (fh, x64bit, (void*)&ehdr, &size)) {
+			} else if (__sizeCalculation (fh, x64bit, (void*)&ehdr, &size) == false) {
 				// ERROR!
 				err = -1;
 			}
@@ -284,7 +286,7 @@ int get_elf_size() {
 				// ERROR!
 				err = -1;
 
-			} else if (__sizeCalculation (fh, x32bit, (void*)&ehdr, &size)) {
+			} else if (__sizeCalculation (fh, x32bit, (void*)&ehdr, &size) == false) {
 				// ERROR!
 				err = -1;
 			}
