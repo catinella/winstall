@@ -43,9 +43,15 @@
 #include <elfReading.h>
 #include <sys/stat.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <elf.h>
 
 #define MYPROC "/proc/self/exe"
+
+typedef enum {
+	x64bit,
+	x32bit
+} arch_t;
 
 static FILE* __readProc() {
 	struct stat st;
@@ -54,6 +60,140 @@ static FILE* __readProc() {
 		out = fopen(MYPROC, "rb");
 	return(out);
 }
+
+static bool __sizeCalculation (FILE *fh, arch_t arch, const void *elfStruct, unsigned int *size) {
+	//
+	// Description:
+	//	This function reads the Program and Section header table's items and calcule the effective executable code size
+	//
+	//		+-------------------+
+	//		| ELF Header        |
+	//		+-------------------+
+	//		| Program Header #0 |
+	//		| Program Header #1 |
+	//		| ...               |
+	//		+-------------------+
+	//		|                   |
+	//		|   codice, dati    |
+	//		|   sezioni ...     |
+	//		|                   |
+	//		+-------------------+
+	//		| Section Header #0 |
+	//		| Section Header #1 |
+	//		| ...               |
+	//		+-------------------+
+	//
+	// How to calculate the size:
+	// ==========================
+	//	The Program and Section header's items can have padding or allineament spaces, so the best option is to
+	//	to find the end of the last segment. Example of a hipotetical situation:
+	//
+	//		0        1000                 5000      5200        8000     8300
+	//		|---------|////////////////////|---------|////////////|--------|
+	//
+	Elf64_Phdr   phdr64;
+	Elf32_Phdr   phdr32;
+	off_t        segment_end;
+	off_t        elf_end = 0;
+	bool         out     = true;
+	Elf64_Ehdr   *ehdr64 = NULL;
+	Elf32_Ehdr   *ehdr32 = NULL;
+	
+	// Size reset
+	*size = 0;
+
+	if (arch == x64bit) 
+		ehdr64 = (Elf64_Ehdr*)elfStruct;
+	else
+		ehdr32 = (Elf32_Ehdr*)elfStruct;
+	
+	
+	// Moving to the PH sections
+	if (
+		(arch == x64bit && fseeko(fh, ehdr64->e_phoff, SEEK_SET) != 0) ||
+		(arch == x32bit && fseeko(fh, ehdr32->e_phoff, SEEK_SET) != 0)
+	) {
+		// ERROR!
+		out = false;
+
+	} else {
+		unsigned int prgHeadNum = (arch == x64bit) ? ehdr64->e_phnum : ehdr32->e_phnum;
+		
+		for (unsigned int i = 0; i < prgHeadNum; ++i) {
+			//
+			// Program Header Table's item reading
+			//
+			if (
+				(arch == x64bit && fread(&phdr64, sizeof(phdr64), 1, fh) != 1) ||
+				(arch == x32bit && fread(&phdr32, sizeof(phdr32), 1, fh) != 1)
+			) {
+				// ERROR!
+				out = false;
+				break;
+
+			} else {
+				// Now, I look for the end of the last segment
+				if (arch == x64bit) 
+					segment_end = (off_t)phdr64.p_offset + (off_t)phdr64.p_filesz;
+				else
+					segment_end = (off_t)phdr32.p_offset + (off_t)phdr32.p_filesz;
+					
+				if (segment_end > elf_end)
+					elf_end = segment_end;
+			}
+		}
+
+		if (out) {
+			*size = (int)elf_end;
+			segment_end = 0;
+			elf_end = 0;
+
+			if (
+				(arch = x64bit && fseeko(fh, ehdr64->e_shoff, SEEK_SET) != 0) ||
+				(arch = x32bit && fseeko(fh, ehdr32->e_shoff, SEEK_SET) != 0) 
+			) {
+				// ERROR!
+				out = false;
+				
+			} else {
+				Elf64_Shdr   shdr64;
+				Elf32_Shdr   shdr32;
+				unsigned int selHeadNum = (arch == x64bit) ? ehdr64->e_shnum : ehdr32->e_shnum;
+		
+				for (unsigned int i = 0; i < selHeadNum; ++i) {
+
+					if (
+						(arch == x64bit && fread(&shdr64, sizeof(shdr64), 1, fh) != 1) ||
+						(arch == x32bit && fread(&shdr32, sizeof(shdr32), 1, fh) != 1)
+					) {
+						// ERROR!
+						out = false;
+						break;
+
+					} else {
+						if (
+							(arch == x64bit && shdr64.sh_type != SHT_NOBITS) ||
+							(arch == x32bit && shdr32.sh_type != SHT_NOBITS)
+						) {
+							if (arch == x64bit) 
+								segment_end = (off_t)shdr64.sh_offset + (off_t)shdr64.sh_size;
+							else
+								segment_end = (off_t)shdr32.sh_offset + (off_t)shdr32.sh_size;
+							
+							if (segment_end > elf_end)
+								elf_end = segment_end;
+						}
+				
+					}
+				}
+				*size += elf_end;
+			}
+		}
+	}
+
+	return(out);
+}
+
 
 int get_elf_size() {
 	//
@@ -81,11 +221,11 @@ int get_elf_size() {
 	//			ident[EI_VERSION]
 	//
 	//
-	//
           
 	uint8_t ident[EI_NIDENT];
 	FILE    *fh = __readProc();
-	int     err = 0, size = 0;
+	int     err = 0;
+	unsigned int size = 0;
 	
 	// Checking for function's arguments
 	if (fh == NULL) {
@@ -121,30 +261,9 @@ int get_elf_size() {
 				// ERROR!
 				err = -1;
 
-			// Moving to the PH sections
-			} else if (fseeko(fh, ehdr.e_phoff, SEEK_SET) != 0) {
+			} else if (__sizeCalculation (fh, x64bit, (void*)&ehdr, &size)) {
 				// ERROR!
 				err = -1;
-
-			} else {
-				off_t      elf_end = 0;
-				Elf64_Phdr phdr;
-				off_t      segment_end;
-
-				for (Elf64_Half i = 0; i < ehdr.e_phnum; ++i) {
-
-					if (fread(&phdr, sizeof(phdr), 1, fh) != 1) {
-						// ERROR!
-						err = -2;
-						break;
-
-					} else {
-						segment_end = (off_t)phdr.p_offset + (off_t)phdr.p_filesz;
-						if (segment_end > elf_end)
-							elf_end = segment_end;
-					}
-				}
-				size = (int)elf_end;
 			}
 			
 		} else if (ident[EI_CLASS] == ELFCLASS32) {
@@ -165,30 +284,9 @@ int get_elf_size() {
 				// ERROR!
 				err = -1;
 
-			// Moving to the PH sections
-			} else if (fseeko(fh, ehdr.e_phoff, SEEK_SET) != 0) {
+			} else if (__sizeCalculation (fh, x32bit, (void*)&ehdr, &size)) {
 				// ERROR!
 				err = -1;
-
-			} else {
-				off_t      elf_end = 0;
-				Elf32_Phdr phdr;
-				off_t      segment_end;
-
-				for (Elf32_Half i = 0; i < ehdr.e_phnum; ++i) {
-
-					if (fread(&phdr, sizeof(phdr), 1, fh) != 1) {
-						// ERROR!
-						err = -2;
-						break;
-
-					} else {
-						segment_end = (off_t)phdr.p_offset + (off_t)phdr.p_filesz;
-						if (segment_end > elf_end)
-							elf_end = segment_end;
-					}
-				}
-				size = (int)elf_end;
 			}
 		}
 	}
