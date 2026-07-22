@@ -83,13 +83,20 @@ static bool __sizeCalculation (FILE *fh, arch_t arch, const void *elfStruct, uns
 	//		| ...               |
 	//		+-------------------+
 	//
-	// How to calculate the size:
-	// ==========================
-	//	The Program and Section header's items can have padding or allineament spaces, so the best option is to
-	//	to find the end of the last segment. Example of a hipotetical situation:
+	// 	Header Section positions:
+	//	=========================
+	//		In the last diagram "Section Headers" section is after the "Program Headers" one. But the ELF format
+	//		protocol does not specify this aspect. This is the reason because to find the last used address of
+	//		the the two sectiuon is the only solution
 	//
-	//		0        1000                 5000      5200        8000     8300
-	//		|---------|////////////////////|---------|////////////|--------|
+	//	How to calculate the size:
+	//	==========================
+	//		The Program and Section header's items can have padding or allineament spaces, so the best option is to
+	//		to find the end of the last segment. Example of a hipotetical situation:
+	//
+	//			0        1000                 5000      5200        8000     8300
+	//			|---------|////////////////////|---------|////////////|--------|
+	//
 	//
 	Elf64_Phdr   phdr64;
 	Elf32_Phdr   phdr32;
@@ -117,36 +124,50 @@ static bool __sizeCalculation (FILE *fh, arch_t arch, const void *elfStruct, uns
 		out = false;
 
 	} else {
-		unsigned int prgHeadNum = (arch == x64bit) ? ehdr64->e_phnum : ehdr32->e_phnum;
-		
-		for (unsigned int i = 0; i < prgHeadNum; ++i) {
-			//
-			// Program Header Table's item reading
-			//
-			if (
-				(arch == x64bit && fread(&phdr64, sizeof(phdr64), 1, fh) != 1) ||
-				(arch == x32bit && fread(&phdr32, sizeof(phdr32), 1, fh) != 1)
-			) {
-				// ERROR!
-				out = false;
-				break;
+		unsigned int prgHeadNum   = (arch == x64bit) ? ehdr64->e_phnum : ehdr32->e_phnum;
+		off_t        ph_table_end = 0;
+		off_t        sh_table_end = 0;
 
-			} else {
-				// Now, I look for the end of the last segment
-				if (arch == x64bit) 
-					segment_end = (off_t)phdr64.p_offset + (off_t)phdr64.p_filesz;
-				else
-					segment_end = (off_t)phdr32.p_offset + (off_t)phdr32.p_filesz;
-					
-				if (segment_end > elf_end)
-					elf_end = segment_end;
-			}
+		if (arch == x64bit) {
+			ph_table_end = (off_t)ehdr64->e_phoff + (off_t)ehdr64->e_phentsize * ehdr64->e_phnum;
+			sh_table_end = (off_t)ehdr64->e_shoff + (off_t)ehdr64->e_shentsize * ehdr64->e_shnum;
+		} else {
+			ph_table_end = (off_t)ehdr32->e_phoff + (off_t)ehdr32->e_phentsize * ehdr32->e_phnum;
+			sh_table_end = (off_t)ehdr32->e_shoff + (off_t)ehdr32->e_shentsize * ehdr32->e_shnum;
 		}
 
-		if (out) {
-			*size = (int)elf_end;
+		elf_end = (ph_table_end > sh_table_end) ? ph_table_end : sh_table_end;
+
+		if (ph_table_end > sh_table_end) {
 			segment_end = 0;
-			elf_end = 0;
+
+			for (unsigned int i = 0; i < prgHeadNum; ++i) {
+				//
+				// Program Header Table's item reading
+				//
+				if (
+					(arch == x64bit && fread(&phdr64, sizeof(phdr64), 1, fh) != 1) ||
+					(arch == x32bit && fread(&phdr32, sizeof(phdr32), 1, fh) != 1)
+				) {
+					// ERROR!
+					out = false;
+					break;
+
+				} else {
+					// Now, I look for the end of the last segment
+					if (arch == x64bit) 
+						segment_end = (off_t)phdr64.p_offset + (off_t)phdr64.p_filesz;
+					else
+						segment_end = (off_t)phdr32.p_offset + (off_t)phdr32.p_filesz;
+						
+					if (segment_end > elf_end)
+						elf_end = segment_end;
+				}
+			}
+			*size = elf_end;
+
+		} else {
+			segment_end = 0;
 
 			if (
 				(arch == x64bit && fseeko(fh, ehdr64->e_shoff, SEEK_SET) != 0) ||
@@ -186,7 +207,7 @@ static bool __sizeCalculation (FILE *fh, arch_t arch, const void *elfStruct, uns
 				
 					}
 				}
-				*size += elf_end;
+				*size = elf_end;
 			}
 		}
 	}
@@ -266,6 +287,9 @@ int get_elf_size() {
 			} else if (__sizeCalculation (fh, x64bit, (void*)&ehdr, &size) == false) {
 				// ERROR!
 				err = -1;
+
+			} else { 
+				//printf("DEBUG(%d)! arch = 64bit; size = %d bytes\n", __LINE__, size);
 			}
 			
 		} else if (ident[EI_CLASS] == ELFCLASS32) {
@@ -289,6 +313,9 @@ int get_elf_size() {
 			} else if (__sizeCalculation (fh, x32bit, (void*)&ehdr, &size) == false) {
 				// ERROR!
 				err = -1;
+				
+			} else {
+				// printf("DEBUG(%d)! arch = 32bit; size = %d bytes\n", __LINE__, size);
 			}
 		}
 	}
