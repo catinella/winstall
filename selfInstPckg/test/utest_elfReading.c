@@ -21,6 +21,8 @@
 #include <minute.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <errno.h>
+#include <unistd.h>
 
 #ifndef TEXTFILE
 #error "\"TEXTFILE\" is undefined symbol"
@@ -31,9 +33,9 @@
 
 TEST (get_elf_size, with_text) {
 	int   size = get_elf_size();
+	//int   size = 33152;
 	FILE  *fhS = NULL;
 	FILE  *fhT = NULL;
-	bool  err  = false;
 
 	ASSERT_TRUE (size > 0);
 
@@ -52,25 +54,42 @@ TEST (get_elf_size, with_text) {
 	} else {
 		char         lineFileA[MAXLINELEN];
 		char         lineFileB[MAXLINELEN];
+		char         *rcA = NULL;
+		char         *rcB = NULL;
 		unsigned int counter = 0;
+		bool         err  = false;
 
 		memset(lineFileA, '\0', sizeof(char) * MAXLINELEN);
 		memset(lineFileB, '\0', sizeof(char) * MAXLINELEN);
 
 		while (err == false && feof(fhS) == 0 && feof(fhT) == 0) {
-			if (fgets(lineFileA, MAXLINELEN, fhS) != NULL && fgets(lineFileB, MAXLINELEN, fhT) != NULL) {
+			rcA = fgets(lineFileA, MAXLINELEN, fhS);
+			rcB = fgets(lineFileB, MAXLINELEN, fhT);
+			if (rcA != NULL && rcB != NULL) {
 				if (strcmp(lineFileA, lineFileB) != 0) {
 					// ERROR! 
-					fprintf(stderr, "ERROR! Text data corrupted");
+					fprintf(stderr, "ERROR(%d)! Text data corrupted\n", __LINE__);
+					//printf("DEBUG(%d): \"%s\"\n", __LINE__, lineFileA);
+					//printf("DEBUG(%d): \"%s\"\n", __LINE__, lineFileB);
 					err = true;
 
-				} else if (fileArgumentsDb_get("verbose", NULL) == true) {
+				} else if (fileArgumentsDb_get("verbose", NULL)) {
 					counter++;
-					printf("\rPassed: %d", counter);
+					fprintf(stdout, "\rPassed: %d ", counter);
+					fflush(stdout);
+					usleep(10000);
 				}
+
+			} else if (errno == 0 && feof(fhS) && feof(fhT)) {
+				//printf("DEBUG(%d): Normal end\n", __LINE__);
+
+			} else {
+				// ERROR! 
+				fprintf(stderr, "ERROR(%d)! %s", __LINE__, strerror(errno));
+				err = true;
 			}
 		}
-		if (fileArgumentsDb_get("verbose", NULL) == true)
+		if (fileArgumentsDb_get("verbose", NULL))
 			printf("\n");
 
 		ASSERT_TRUE (err == false);
