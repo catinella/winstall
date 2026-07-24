@@ -37,18 +37,22 @@
 SRCs := $(shell ls *.c)
 OBJs := $(SRCs:.c=.o)
 
-.PHONY: clean
+INCLUDE = -I. $(shell pkg-config --cflags glib-2.0)
+LIB     = $(shell pkg-config --libs glib-2.0) $(shell pkg-config --libs libarchive)
 
+
+
+.PHONY: clean
 
 all:			$(PRJNAME).bin
 
 selfInstaller:	selfInstaller.o $(OBJs);
 			@echo "[ LD ] $@"
-			@gcc -Wall -o $@ $<
+			@gcc -Wall -o $@ $^ $(LIB)
 
 %.o:			%.c
 			@echo "[ CC ] $@"
-			@gcc -Wall -o $@ -I. -c $<
+			@gcc -Wall -o $@ $(INCLUDE) -c $<
 
 %.c:			%.c.tmpl
 			@echo "[SCRIPT] $@"
