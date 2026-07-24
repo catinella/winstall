@@ -11,20 +11,48 @@
 // Author: Silvano Catinella <catinella@yahoo.com>
 //	
 // Description:
-//	This code is the brain of the self-installed package. Thank this code, the bin-package will  provide the following CLI:
+//	This code is the brain of the self-installing package. Thank this code, the bin-package allows you to install or remove
+//	the target software using the following CLI:
 //		<pkg bin-file> {--install|--uninstall} [--verbose] [--hwelp]
 //
+//	Internal structure of bin package
+//		+-----------------+
+//		| Python launcher | The packqage's brain
+//		+-----------------+
+//		|                 |
+//		| tar.gz payload  | TGZ archive that contains the files to install
+//		|                 |
+//		+-----------------+
+//		| Footer          |
+//		+-----------------+
+//
+//
+//	Exit code convention:
+//		0..15      Success / informational
+//		16..127    Non-fatal conditions (warnings)
+//		128..255   Fatal errors (logMsg() terminates the program)
+//
+//
 ------------------------------------------------------------------------------------------------------------------------------*/
+#define _XOPEN_SOURCE 700
+
 #include <stdbool.h>
 #include <stdio.h>
-#include <sys/stat.h>
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
 #include <limits.h>
 #include <getopt.h>
+#include <archive.h>
+#include <archive_entry.h>
+#include <sys/types.h>
+#include <elfReading.h>
+#include <errno.h>
+#include <stdarg.h>
+#include <glib.h>
+#include <ftw.h>
 #include ##WINSTALLCONF##
-
+	
 //
 // Installed packages data files folder
 //	(It is used by the --install and --uninstall optios)
@@ -79,9 +107,19 @@ typedef enum {
 	_last
 } wCmd_t;
 
+#define READ_BUFFER_SIZE (64 * 1024)
 
+#define MYSELF "/proc/self/exe"
+
+#define LOGMSG(...) logMsg(__LINE__, __VA_ARGS__)
+
+//------------------------------------------------------------------------------------------------------------------------------
+//                                                F U N C T I O N S 
+//------------------------------------------------------------------------------------------------------------------------------
 void printBanner (const char *dataset, unsigned int size) {
-	
+	// TODO: Banner length calculating
+	// TODO: Terminal columns number acknowledge
+	// TODO: Print the baner center justified
 	
 	return;
 }
@@ -120,13 +158,15 @@ void helpProc (const char *myname, int ec) {
 bool filesGlue (const char *patha, const char *pathb, char *res) {
 	//
 	// Description:
-	//	It allows you to merge two pathes (eg. "/etc" + "passwd" ..> "/etc/passwd")
+	//	It allows you to check for the argument defined pats and merge them correctly
+	//		(eg. "/etc" + "passwd" ..> "/etc/passwd")
 	//
-	size_t size = strlen(patha);
-	bool   ec   = true;
+	size_t sizeA = strlen(patha);
+	size_t sizeB = strlen(pathb);
+	bool   out   = true;
 
-	if (size >= PATH_MAX || strlen(pathb) >= PATH_MAX)
-		ec = false;
+	if (sizeA == 0 || sizeB == 0 || sizeA + sizeB >= PATH_MAX)
+		out = false;
 	
 	else {
 		strcpy(res, patha);
@@ -137,9 +177,81 @@ bool filesGlue (const char *patha, const char *pathb, char *res) {
 		strcat(res, pathb);
 	}
 
-	return(ec);
+	return(out);
 }
 
+void logMsg (unsigned int line, uint8_t severity, const char *fmt, ...) {
+	va_list args;
+
+	va_start(args, fmt);
+	if (severity < 16) {
+		fprintf(stdout, "%d [i] ", line);
+		vfprintf(stdout, fmt, args);
+	} else if (severity < 128) {
+		fprintf(stdout, "%d [WARNING] ", line);
+		vfprintf(stdout, fmt, args);
+	} else {
+		fprintf(stderr, "%d [ERROR!] ", line);
+		vfprintf(stderr, fmt, args);
+	}
+	va_end(args);
+	
+	if (severity >= 128)
+		exit((int)severity);
+}
+
+static la_ssize_t archiveReadCB (struct archive *arch, void *clientData, const void **buffer) {
+	//
+	// Description:
+	//	This is the callback used by the "archive" library to read archived data bytes
+	//
+	// Arguments:
+	//	*arch:       It is a pointer of the archive instance
+	//	*clientData  The data access point (FILE*, fd,....)
+	//	**buffer     output pointer that will receive the address of the internal buffer containing the newly read bytes
+	//
+	// Returned value:
+	//	>0   Success and the file is not yet finished
+	//	0    END of file reached
+	//	<0   Error encountered
+	//
+	static unsigned char readBuffer[READ_BUFFER_SIZE];
+	FILE                 *fh  = clientData;
+	la_ssize_t           size = 0;
+
+	// Just to avoid the "unused var arch" waring by GCC
+	if (arch != NULL) {
+		size = (la_ssize_t)fread(readBuffer, 1, sizeof(readBuffer), fh);
+		if (size == 0 && ferror(fh)) {
+			archive_set_error(arch, errno, "fread() failed");
+			size = -1;
+		} else
+			*buffer = readBuffer;
+	}
+	
+	return(size);
+}
+
+static int removeCB (const char *path, const struct stat *sb, int typeflag, struct FTW *ftwbuf) {
+	//
+	// Description:
+	//	This is the CB used by FTW process to remove the dir, recoursively.
+	//
+	int ec = 0;
+	(void)sb;
+	(void)ftwbuf;
+
+	if (tpeflag == FTW_F || typeflag == FTW_SL || typeflag == FTW_SLN) {
+		ec = unlink(path);
+	else if (tpeflag == FTW_DP)
+		ec = rmdir(path);
+
+	return(ec):
+}
+
+int rm_rf(const char *path) {
+    return(nftw(path, removeCB, 64, FTW_DEPTH | FTW_PHYS));
+}
 //------------------------------------------------------------------------------------------------------------------------------
 //                                                     M A I N
 //------------------------------------------------------------------------------------------------------------------------------
@@ -158,7 +270,7 @@ int main (int argc, char *argv[]) {
 	struct option optionsPool[] = {
 		{"install",   no_argument, NULL, 0},
 		{"uninstall", no_argument, NULL, 0},
-		{"verbose",      no_argument, NULL, 0},
+		{"verbose",   no_argument, NULL, 0},
 		{"help",      no_argument, NULL, 0},
 		{0, 0, 0, 0}
 	};
@@ -180,7 +292,11 @@ int main (int argc, char *argv[]) {
 					cmd = W_UNINSTALL;
 				break;
 
-				case 2:
+				case 3: 
+					verboseFlag = false;
+				break;
+
+				case 4:
 					cmd = W_HELP;
 				break;
 			}
@@ -194,6 +310,11 @@ int main (int argc, char *argv[]) {
 	else if (cmd == W_HELP)
 		helpProc(argv[0], 0);
 
+	// Installed package info-file
+	else if (filesGlue(DATALOGFOLDER, PRJNAME, pckgFilename) == false)
+		// ERROR!
+		LOGMSG(131, "Wrong configured path (DATALOGFOLDER)\n");
+
 	else if (cmd == W_UNINSTALL) {
 		struct stat statbuf;
 		char   pckgFilename[PATH_MAX];
@@ -201,56 +322,376 @@ int main (int argc, char *argv[]) {
 		*pckgFilename = '\0';
 		printBanner(banner, BANNER_SIZE);
 
-		// Checking for the pre-defined paths
-		if (filesGlue(DATALOGFOLDER, PRJNAME, pckgFilename) == false) {
-			fprintf(stderr, "ERROR! in the configured data path\n");
-			exit(131);
-
 		// Checking for the DATALOGFOLDER folder
-		} else if (stat(DATALOGFOLDER, &statbuf) < 0) {
-			fprintf(stderr, "ERROR! The \"%s\" folder does not exist\n", DATALOGFOLDER);
-			exit(133);
-		
-		} else if (S_ISDIR(statbuf.st_mode) != 0) {
-			fprintf(stderr, "ERROR! The \"%s\" is not a valid directory\n", DATALOGFOLDER);
-			exit(135);
+		if (
+			stat(DATALOGFOLDER, &statbuf) < 0 ||
+			S_ISDIR(statbuf.st_mode)     != 0
+		) 
+			// ERROR!
+			LOGMSG(133, "The \"%s\" folder does not exist or it is not a valid one\n", DATALOGFOLDER);
 		
 		// Checking for the DATALOGFOLDER/PRJNAME file
-		} else if (stat(pckgFilename, &statbuf) < 0) {
-			fprintf(stdout, "WARNING! The \"%s\" software is not installed\n", PRJNAME);
-			exit(0);
-
-		} else {
-			FILE *fh = fopen(pckgFilename, "r");
-
-			// TODO: Files removing
-
-			fclose(fh);
+		else if (stat(pckgFilename, &statbuf) < 0) {
+			// ERROR!
+			LOGMSG(32, "The \"%s\" software is not installed\n", PRJNAME);
+			exit(32);
 			
-			// Package info file removing
-			if (unlink(pckgFilename) < 0) { 
-				fprintf(stderr, "ERROR! I cannot remove the \"%s\" file\n", pckgFilename);
-				exit(137);
+		} else {
+			char file[PATH_MAX];
+			FILE *fh = fopen(pckgFilename, "r");
+			bool err = false;
+
+			if (fh == NULL)
+				// ERROR!
+				LOGMSG(135, "I cannot read the \"%s\" file\n", pckgFilename);
+
+			else {
+				// Installed files removing
+				while (fgets(file, sizeof(file), fh) != NULL) {
+					if (unlink(pckgFilename) < 0) {
+						LOGMSG(34, "I cannot remove the \"%s\" file\n", file);
+						err = true;
+						
+					else if (verboseFlag) 
+						LOGMSG(1, "\"%s\" removed\n", file);
+					
+				}
+
+				fclose(fh);
 			}
+			
+			if (err)
+				// ERROR!
+				LOGMSG(137, "The removing procedure failed! you can find the files-list in the \"%s\" file", pckgFilename);
+
+			// Package info file removing
+			else if (unlink(pckgFilename) < 0) 
+				// ERROR!
+				LOGMSG(137, "I cannot remove the \"%s\" file\n", pckgFilename);
+
 		}
 
 	} else if (cmd == W_INSTALL) {
-		// TODO: Getting my size
+		FILE           *myselfHF       = NULL;
+		struct archive *tgzArch        = NULL;
+		int            ec              = 0;
+		unsigned int   elfSize         = 0;
+		GPtrArray      *installedFiles = g_ptr_array_new_with_free_func(g_free);
 
-		chdir("/");
-		// TODO: extract pre-install script
+		//
+		// Checking for required folders
+		//
+		{
+			if (stat(DATALOGFOLDER, &statbuf) < 0) {
+				if (mkdir(DATALOGFOLDER, 755) < 0)
+					// ERROR
+					LOGMSG(131, "I cannot create the \"%s\" directory\n", DATALOGFOLDER);
 
-		// TODO: pre-install script execution
+				else if (verboseFlag)
+					LOGMSG(1, "The \"%s\" directory has been created\n", DATALOGFOLDER);
+					
+			} else if (S_ISDIR(statbuf.st_mode) == false)
+				// ERROR
+				LOGMSG(131, "\"%s\" file name is already in use and it is not a directory\n");
+		}
 		
-		// TODO: Package's files extraction....
+		// Check for installed files list initialization
+		if (installedFiles == NULL) 
+			// ERROR
+			LOGMSG(131, "Unable to allocate new memory for the installed-files list\n");
+			
+		// Checking for the DATALOGFOLDER/PRJNAME file
+		else if (stat(pckgFilename, &statbuf) == 0) {
+			// ERROR!
+			LOGMSG(32, "The \"%s\" software is already installed\n", PRJNAME);
+			exit(32);
+			
+		// Get data section offset
+		} else if ((size = get_elf_size()) == 0)
+			// ERROR!
+			LOGMSG(139, "I cannot read my ELF section\n");
+		
+		// Open myself
+		else if ((myselfHF = fopen(MYSELF, "rb")) == NULL)
+			// ERROR!
+			LOGMSG(141, "I cannot open the \"%s\" file\n", MYSELF);
+			
+		// Seec for data section
+		else if (fseeko(myfelfFH, size, SEEK_SET) != 0) {
+			// ERROR!
+			fclose(myfelfFH);
+			LOGMSG(143, "seek() failed on the \"/proc/self/exe\" file\n");
 
-		// TODO: Package's info file creation
+		// Change to the root folder
+		} else if (chdir("/") != 0) {
+			// ERROR!
+			fclose(myfelfFH);
+			LOGMSG(145, "I cannot change my position inside the Filesystem\n");
 
-		// TODO: Post install script execution
+		// Archive manager creation
+		} else if ((tgzArch = archive_read_new()) == NULL) {
+			// ERROR!
+			fclose(myfelfFH);
+			LOGMSG(147, "No enough resouces\n");
 
-		// TODO: installer's folder removing
+		// Archive manager cchecking for TGZ format
+		if (
+			archive_read_support_filter_gzip(tgzArch) != ARCHIVE_OK ||
+			archive_read_support_format_tar(tgzArch)  != ARCHIVE_OK
 
-		//cd -
+		) {
+			// ERROR!
+			fclose(myfelfFH);
+			LOGMSG(149, "The internal archiving lib doesn't support the archived data format\n");
+
+		// Callback registration
+		} else if (archive_read_open(arch, myselfFH, NULL, archiveReadCB, NULL) != ARCHIVE_OK) {
+			// ERROR!
+			fclose(myfelfFH);
+			LOGMSG(151, "Unable to open embedded archive: %s", archive_error_string(arch));
+
+		} else {
+			struct archive       *disk    = archive_write_disk_new();
+			struct archive_entry *entry   = NULL;
+			int                  result   = ARCHIVE_OK;
+			uint8_t              ec       = 1;
+
+			archive_write_disk_set_options(
+				disk, ARCHIVE_EXTRACT_TIME | ARCHIVE_EXTRACT_PERM | ARCHIVE_EXTRACT_ACL  | ARCHIVE_EXTRACT_FFLAGS
+			);
+
+			archive_write_disk_set_standard_lookup(disk);
+
+			//
+			// /winstall folder extraction
+			//
+			while ((result = archive_read_next_header(arch, &entry)) == ARCHIVE_OK) {
+				const char *path = archive_entry_pathname(entry);
+
+				if (
+					strncmp(path, "winstall/", strlen("winstall/")) == 0 ||
+					strcmp(path, "winstall")                        == 0
+				) {
+					// file extraction
+					result = archive_write_header(disk, entry);
+
+					// === SUCCESS ===
+					if (result == ARCHIVE_OK || result == ARCHIVE_WARN) {
+						const void *data = NULL;
+						size_t      size = 0;
+						la_int64_t  offset = 0;
+
+						LOGMSG(6, "%s", archive_error_string(disk));
+					
+						while ((result = archive_read_data_block(arch, &data, &size, &offset)) == ARCHIVE_OK) {
+
+							// Reading file content
+							result = archive_write_data_block(disk, data, size, offset);
+
+							if (result == ARCHIVE_ERROR) {
+								// ERROR!
+								fclose(myfelfFH);
+								LOGMSG(131, "Unable to extract '%s': %s", path, archive_error_string(disk));
+							}
+						}
+
+						// Checking for operation's exit-code
+						if (archive_write_finish_entry(disk) != ARCHIVE_OK) {
+							// ERROR!
+							fclose(myfelfFH);
+							LOGMSG(131, "Unable to complete '%s': %s", path, archive_error_string(disk));
+						}
+    
+					} else {
+						// ERROR!
+						fclose(myfelfFH);
+						LOGMSG(131, "Corrupted data\n"):
+					}
+				} else {
+					archive_read_data_skip(arch);
+					continue;
+				}
+			}
+
+			if (*PREINST != '\0') {
+				struct stat statbuf;
+				char        preInstFile[PATH_MAX];
+
+				if (filesGlue("/winstall", PREINST, preInstFile) == false) {
+					// ERROR!
+					fclose(myfelfFH);
+					LOGMSG(131, "Configured path or filename is not allowed\n"):
+
+				// Check for the file
+				} else if (stat(preInstFile, &statbuf) != 0) {
+					// ERROR!
+					fclose(myfelfFH);
+					LOGMSG(131, "Pre-install script defined by not included in the srchive\n");
+			
+				// Check for its permissions to be executed
+				} else if (statbuf.st_mode & S_IXUSR) == 0)
+					// ERROR!	
+					fclose(myfelfFH);
+					LOGMSG(131, "Wrong pre-install script's permissions\n");
+
+				// pre-install script execution
+				} else if (system(preInstFile) != 0) {
+					// ERROR!
+					fclose(myfelfFH);
+					LOGMSG(131, "pre-install procedure failed\n");
+				}
+			}
+			
+			entry = NULL;
+			result = ARCHIVE_OK;
+
+			//
+			// Package's files extraction....
+			//
+			while ((result = archive_read_next_header(arch, &entry)) == ARCHIVE_OK) {
+				result = archive_write_header(disk, entry);
+
+				if (result == ARCHIVE_ERROR) {
+					// ERROR!
+					fclose(myfelfFH);
+					LOGMSG(
+						131, "Unable to create '%s': %s\n", archive_entry_pathname(entry), archive_error_string(disk)
+					);
+
+				} else {
+					if (result == ARCHIVE_WARN) {
+						LOGMSG( 18, "WARNING! '%s': %s\n", archive_entry_pathname(entry), archive_error_string(disk));
+					} else {
+						LOGMSG(1, "+ %s\n", archive_entry_pathname(entry));
+					}
+					
+					const void *data = NULL;
+					size_t size = 0;
+					la_int64_t offset = 0;
+
+					//
+					// Reading the file's content
+					//
+					while ((result = archive_read_data_block(arch, &data, &size, &offset)) == ARCHIVE_OK) {
+						result = archive_write_data_block(disk, data, size, offset);
+
+						if (result == ARCHIVE_ERROR) {
+							// ERROR!
+							fclose(myfelfFH);
+							LOGMSG(
+								131, "Unable to write '%s': %s\n",
+								archive_entry_pathname(entry),
+								archive_error_string(disk)
+							);
+							
+						}
+						
+					}
+
+					if (result != ARCHIVE_EOF) {
+						// ERROR!
+						fclose(myfelfFH);
+						LOGMSG(
+							131, "Unable to read '%s': %s\n",
+							archive_entry_pathname(entry),
+							archive_error_string(arch)
+						);
+					}
+				}
+
+				// Check for the whole file writing operation
+				result = archive_write_finish_entry(disk);
+
+				if (result == ARCHIVE_OK) {
+					mode_t fileType = archive_entry_filetype(entry);
+
+					if (fileType == AE_IFREG || fileType == AE_IFLNK)
+						// Adding the file to the installed ones list
+						g_ptr_array_add(installedFiles, g_strdup(archive_entry_pathname(entry)));
+					
+				} else {
+					// ERROR!
+					fclose(myfelfFH);
+					LOGMSG(
+						131, "Unable to complete '%s': %s\n",
+						archive_entry_pathname(entry),
+						archive_error_string(disk)
+					);
+				}
+			} // === while-loop ===
+
+			if (result != ARCHIVE_EOF) {
+				// ERROR!
+				fclose(myfelfFH);
+				LOGMSG(131, "Unable to read archive: %s\n", archive_error_string(arch));
+			}
+
+
+			//
+			// Sytem resources closing and releasing
+			//
+			archive_read_close(tgzArch);
+			archive_write_close(disk);
+			archive_read_free(tgzArch);
+			archive_write_free(disk);
+			fclose(myfelfFH);
+
+			
+			// Package's info file creation
+			{
+				FILE *repFH = fopen(pckgFilename, "w");
+				if (repFH == NULL)
+					// ERROR!
+					LOGMSG(152, "I cannot write the \"%s\" file\n", pckgFilename);
+
+				else {
+					for (guint x = 0; x < installedFiles->len; x++) {
+						const char *filename = g_ptr_array_index(installedFiles, x);
+						if (fprintf(dbFH, "/%s\n", filename) < 0) {
+							fclose(dbFH);
+							logMsg(131, "Unable to write '%s'\n", pckgFilename);
+						}
+					}
+
+					fclose(dbFH);
+				}
+			}
+						
+			// Post install script execution
+			if (*POSTINST != '\0') {
+				struct stat statbuf;
+				char        postInstFile[PATH_MAX];
+
+				if (filesGlue("/winstall", PREINST, postInstFile) == false) {
+					// ERROR!
+					LOGMSG(131, "Configured path or filename is not allowed\n"):
+
+				// Check for the file
+				} else if (stat(postInstFile, &statbuf) != 0) {
+					// ERROR!
+					LOGMSG(131, "Post-install script defined by not included in the archive\n");
+			
+				// Check for its permissions to be executed
+				} else if (statbuf.st_mode & S_IXUSR) == 0)
+					// ERROR!	
+					LOGMSG(131, "Wrong post-install script's permissions\n");
+
+				// pre-install script execution
+				} else if (system(preInstFile) != 0) {
+					// ERROR!
+					LOGMSG(131, "post-install procedure failed\n");
+				}
+			}
+			
+			// installer's folder removing
+			if (rm_rf(DATALOGFOLDER) < 0) 
+				LOGMSG(131, "Impossible to remove the \"%s\" folder\n", 
+
+			// Coming back to the original poition
+			else if (chdir("-") != 0)
+				// ERROR!
+				LOGMSG(145, "I cannot change my position inside the Filesystem\n");
+		}
 	}
 
 	return(0);
