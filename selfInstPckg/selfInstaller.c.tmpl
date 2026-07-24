@@ -26,6 +26,16 @@
 //		| Footer          |
 //		+-----------------+
 //
+//	In order to manage the TGZ collected data, I have used the UNIX common archive library. In the following table you can
+//	read the exit code of the functions belong to the library
+//
+//		ARCHIVE_OK      = successo
+//		ARCHIVE_WARN    = successo con warning
+//		ARCHIVE_RETRY   = riprova l'operazione
+//		ARCHIVE_FAILED  = operazione fallita, ma l'archivio può continuare
+//		ARCHIVE_FATAL   = errore irreversibile, fermati
+//		ARCHIVE_EOF     = fine archivio (solo per alcune API)
+//
 //
 //	Exit code convention:
 //		0..15      Success / informational
@@ -170,9 +180,9 @@ bool filesGlue (const char *patha, const char *pathb, char *res) {
 	
 	else {
 		strcpy(res, patha);
-		if (res[size-1] != PATH_SPLITTER) {
-			res[size]   = '/';
-			res[size+1] = '\0';
+		if (res[sizeA-1] != PATH_SPLITTER) {
+			res[sizeA]   = '/';
+			res[sizeA+1] = '\0';
 		}
 		strcat(res, pathb);
 	}
@@ -241,12 +251,13 @@ static int removeCB (const char *path, const struct stat *sb, int typeflag, stru
 	(void)sb;
 	(void)ftwbuf;
 
-	if (tpeflag == FTW_F || typeflag == FTW_SL || typeflag == FTW_SLN) {
+	if (typeflag == FTW_F || typeflag == FTW_SL || typeflag == FTW_SLN)
 		ec = unlink(path);
-	else if (tpeflag == FTW_DP)
+		
+	else if (typeflag == FTW_DP)
 		ec = rmdir(path);
 
-	return(ec):
+	return(ec);
 }
 
 int rm_rf(const char *path) {
@@ -260,6 +271,7 @@ int main (int argc, char *argv[]) {
 	int     ec = 0;
 	wCmd_t  cmd = _last;
 	bool    verboseFlag = false;
+	char    pckgFilename[PATH_MAX];
 
 #if BANNER_SIZE == 0
 	char banner[BANNER_SIZE];
@@ -317,7 +329,6 @@ int main (int argc, char *argv[]) {
 
 	else if (cmd == W_UNINSTALL) {
 		struct stat statbuf;
-		char   pckgFilename[PATH_MAX];
 
 		*pckgFilename = '\0';
 		printBanner(banner, BANNER_SIZE);
@@ -352,7 +363,7 @@ int main (int argc, char *argv[]) {
 						LOGMSG(34, "I cannot remove the \"%s\" file\n", file);
 						err = true;
 						
-					else if (verboseFlag) 
+					} else if (verboseFlag) 
 						LOGMSG(1, "\"%s\" removed\n", file);
 					
 				}
@@ -372,9 +383,9 @@ int main (int argc, char *argv[]) {
 		}
 
 	} else if (cmd == W_INSTALL) {
-		FILE           *myselfHF       = NULL;
+		struct stat    statbuf;
+		FILE           *myselfFH       = NULL;
 		struct archive *tgzArch        = NULL;
-		int            ec              = 0;
 		unsigned int   elfSize         = 0;
 		GPtrArray      *installedFiles = g_ptr_array_new_with_free_func(g_free);
 
@@ -407,54 +418,53 @@ int main (int argc, char *argv[]) {
 			exit(32);
 			
 		// Get data section offset
-		} else if ((size = get_elf_size()) == 0)
+		} else if ((elfSize = get_elf_size()) == 0)
 			// ERROR!
 			LOGMSG(139, "I cannot read my ELF section\n");
 		
 		// Open myself
-		else if ((myselfHF = fopen(MYSELF, "rb")) == NULL)
+		else if ((myselfFH = fopen(MYSELF, "rb")) == NULL)
 			// ERROR!
 			LOGMSG(141, "I cannot open the \"%s\" file\n", MYSELF);
 			
 		// Seec for data section
-		else if (fseeko(myfelfFH, size, SEEK_SET) != 0) {
+		else if (fseeko(myselfFH, elfSize, SEEK_SET) != 0) {
 			// ERROR!
-			fclose(myfelfFH);
+			fclose(myselfFH);
 			LOGMSG(143, "seek() failed on the \"/proc/self/exe\" file\n");
 
 		// Change to the root folder
 		} else if (chdir("/") != 0) {
 			// ERROR!
-			fclose(myfelfFH);
+			fclose(myselfFH);
 			LOGMSG(145, "I cannot change my position inside the Filesystem\n");
 
 		// Archive manager creation
 		} else if ((tgzArch = archive_read_new()) == NULL) {
 			// ERROR!
-			fclose(myfelfFH);
+			fclose(myselfFH);
 			LOGMSG(147, "No enough resouces\n");
 
 		// Archive manager cchecking for TGZ format
-		if (
+		} else if (
 			archive_read_support_filter_gzip(tgzArch) != ARCHIVE_OK ||
 			archive_read_support_format_tar(tgzArch)  != ARCHIVE_OK
 
 		) {
 			// ERROR!
-			fclose(myfelfFH);
+			fclose(myselfFH);
 			LOGMSG(149, "The internal archiving lib doesn't support the archived data format\n");
 
 		// Callback registration
-		} else if (archive_read_open(arch, myselfFH, NULL, archiveReadCB, NULL) != ARCHIVE_OK) {
+		} else if (archive_read_open(tgzArch, myselfFH, NULL, archiveReadCB, NULL) != ARCHIVE_OK) {
 			// ERROR!
-			fclose(myfelfFH);
-			LOGMSG(151, "Unable to open embedded archive: %s", archive_error_string(arch));
+			fclose(myselfFH);
+			LOGMSG(151, "Unable to open embedded archive: %s", archive_error_string(tgzArch));
 
 		} else {
 			struct archive       *disk    = archive_write_disk_new();
 			struct archive_entry *entry   = NULL;
 			int                  result   = ARCHIVE_OK;
-			uint8_t              ec       = 1;
 
 			archive_write_disk_set_options(
 				disk, ARCHIVE_EXTRACT_TIME | ARCHIVE_EXTRACT_PERM | ARCHIVE_EXTRACT_ACL  | ARCHIVE_EXTRACT_FFLAGS
@@ -465,7 +475,7 @@ int main (int argc, char *argv[]) {
 			//
 			// /winstall folder extraction
 			//
-			while ((result = archive_read_next_header(arch, &entry)) == ARCHIVE_OK) {
+			while ((result = archive_read_next_header(tgzArch, &entry)) == ARCHIVE_OK) {
 				const char *path = archive_entry_pathname(entry);
 
 				if (
@@ -483,14 +493,14 @@ int main (int argc, char *argv[]) {
 
 						LOGMSG(6, "%s", archive_error_string(disk));
 					
-						while ((result = archive_read_data_block(arch, &data, &size, &offset)) == ARCHIVE_OK) {
+						while ((result = archive_read_data_block(tgzArch, &data, &size, &offset)) == ARCHIVE_OK) {
 
 							// Reading file content
 							result = archive_write_data_block(disk, data, size, offset);
 
-							if (result == ARCHIVE_ERROR) {
+							if (result != ARCHIVE_OK && result != ARCHIVE_WARN) {
 								// ERROR!
-								fclose(myfelfFH);
+								fclose(myselfFH);
 								LOGMSG(131, "Unable to extract '%s': %s", path, archive_error_string(disk));
 							}
 						}
@@ -498,17 +508,17 @@ int main (int argc, char *argv[]) {
 						// Checking for operation's exit-code
 						if (archive_write_finish_entry(disk) != ARCHIVE_OK) {
 							// ERROR!
-							fclose(myfelfFH);
+							fclose(myselfFH);
 							LOGMSG(131, "Unable to complete '%s': %s", path, archive_error_string(disk));
 						}
     
 					} else {
 						// ERROR!
-						fclose(myfelfFH);
-						LOGMSG(131, "Corrupted data\n"):
+						fclose(myselfFH);
+						LOGMSG(131, "Corrupted data\n");
 					}
 				} else {
-					archive_read_data_skip(arch);
+					archive_read_data_skip(tgzArch);
 					continue;
 				}
 			}
@@ -519,25 +529,25 @@ int main (int argc, char *argv[]) {
 
 				if (filesGlue("/winstall", PREINST, preInstFile) == false) {
 					// ERROR!
-					fclose(myfelfFH);
-					LOGMSG(131, "Configured path or filename is not allowed\n"):
+					fclose(myselfFH);
+					LOGMSG(131, "Configured path or filename is not allowed\n");
 
 				// Check for the file
 				} else if (stat(preInstFile, &statbuf) != 0) {
 					// ERROR!
-					fclose(myfelfFH);
+					fclose(myselfFH);
 					LOGMSG(131, "Pre-install script defined by not included in the srchive\n");
 			
 				// Check for its permissions to be executed
-				} else if (statbuf.st_mode & S_IXUSR) == 0)
+				} else if ((statbuf.st_mode & S_IXUSR) == 0) {
 					// ERROR!	
-					fclose(myfelfFH);
+					fclose(myselfFH);
 					LOGMSG(131, "Wrong pre-install script's permissions\n");
 
 				// pre-install script execution
 				} else if (system(preInstFile) != 0) {
 					// ERROR!
-					fclose(myfelfFH);
+					fclose(myselfFH);
 					LOGMSG(131, "pre-install procedure failed\n");
 				}
 			}
@@ -548,12 +558,12 @@ int main (int argc, char *argv[]) {
 			//
 			// Package's files extraction....
 			//
-			while ((result = archive_read_next_header(arch, &entry)) == ARCHIVE_OK) {
+			while ((result = archive_read_next_header(tgzArch, &entry)) == ARCHIVE_OK) {
 				result = archive_write_header(disk, entry);
 
-				if (result == ARCHIVE_ERROR) {
+				if (result != ARCHIVE_OK && result != ARCHIVE_WARN) {
 					// ERROR!
-					fclose(myfelfFH);
+					fclose(myselfFH);
 					LOGMSG(
 						131, "Unable to create '%s': %s\n", archive_entry_pathname(entry), archive_error_string(disk)
 					);
@@ -572,12 +582,12 @@ int main (int argc, char *argv[]) {
 					//
 					// Reading the file's content
 					//
-					while ((result = archive_read_data_block(arch, &data, &size, &offset)) == ARCHIVE_OK) {
+					while ((result = archive_read_data_block(tgzArch, &data, &size, &offset)) == ARCHIVE_OK) {
 						result = archive_write_data_block(disk, data, size, offset);
 
-						if (result == ARCHIVE_ERROR) {
+						if (result != ARCHIVE_OK && result != ARCHIVE_WARN) {
 							// ERROR!
-							fclose(myfelfFH);
+							fclose(myselfFH);
 							LOGMSG(
 								131, "Unable to write '%s': %s\n",
 								archive_entry_pathname(entry),
@@ -590,11 +600,11 @@ int main (int argc, char *argv[]) {
 
 					if (result != ARCHIVE_EOF) {
 						// ERROR!
-						fclose(myfelfFH);
+						fclose(myselfFH);
 						LOGMSG(
 							131, "Unable to read '%s': %s\n",
 							archive_entry_pathname(entry),
-							archive_error_string(arch)
+							archive_error_string(tgzArch)
 						);
 					}
 				}
@@ -611,7 +621,7 @@ int main (int argc, char *argv[]) {
 					
 				} else {
 					// ERROR!
-					fclose(myfelfFH);
+					fclose(myselfFH);
 					LOGMSG(
 						131, "Unable to complete '%s': %s\n",
 						archive_entry_pathname(entry),
@@ -622,8 +632,8 @@ int main (int argc, char *argv[]) {
 
 			if (result != ARCHIVE_EOF) {
 				// ERROR!
-				fclose(myfelfFH);
-				LOGMSG(131, "Unable to read archive: %s\n", archive_error_string(arch));
+				fclose(myselfFH);
+				LOGMSG(131, "Unable to read archive: %s\n", archive_error_string(tgzArch));
 			}
 
 
@@ -634,7 +644,7 @@ int main (int argc, char *argv[]) {
 			archive_write_close(disk);
 			archive_read_free(tgzArch);
 			archive_write_free(disk);
-			fclose(myfelfFH);
+			fclose(myselfFH);
 
 			
 			// Package's info file creation
@@ -647,13 +657,13 @@ int main (int argc, char *argv[]) {
 				else {
 					for (guint x = 0; x < installedFiles->len; x++) {
 						const char *filename = g_ptr_array_index(installedFiles, x);
-						if (fprintf(dbFH, "/%s\n", filename) < 0) {
-							fclose(dbFH);
-							logMsg(131, "Unable to write '%s'\n", pckgFilename);
+						if (fprintf(repFH, "/%s\n", filename) < 0) {
+							fclose(repFH);
+							LOGMSG(131, "Unable to write '%s'\n", pckgFilename);
 						}
 					}
 
-					fclose(dbFH);
+					fclose(repFH);
 				}
 			}
 						
@@ -664,7 +674,7 @@ int main (int argc, char *argv[]) {
 
 				if (filesGlue("/winstall", PREINST, postInstFile) == false) {
 					// ERROR!
-					LOGMSG(131, "Configured path or filename is not allowed\n"):
+					LOGMSG(131, "Configured path or filename is not allowed\n");
 
 				// Check for the file
 				} else if (stat(postInstFile, &statbuf) != 0) {
@@ -672,12 +682,12 @@ int main (int argc, char *argv[]) {
 					LOGMSG(131, "Post-install script defined by not included in the archive\n");
 			
 				// Check for its permissions to be executed
-				} else if (statbuf.st_mode & S_IXUSR) == 0)
+				} else if ((statbuf.st_mode & S_IXUSR) == 0) {
 					// ERROR!	
 					LOGMSG(131, "Wrong post-install script's permissions\n");
 
 				// pre-install script execution
-				} else if (system(preInstFile) != 0) {
+				} else if (system(postInstFile) != 0) {
 					// ERROR!
 					LOGMSG(131, "post-install procedure failed\n");
 				}
@@ -685,7 +695,7 @@ int main (int argc, char *argv[]) {
 			
 			// installer's folder removing
 			if (rm_rf(DATALOGFOLDER) < 0) 
-				LOGMSG(131, "Impossible to remove the \"%s\" folder\n", 
+				LOGMSG(131, "Impossible to remove the \"%s\" folder\n", DATALOGFOLDER);
 
 			// Coming back to the original poition
 			else if (chdir("-") != 0)
