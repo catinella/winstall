@@ -218,7 +218,7 @@ static bool __sizeCalculation (FILE *fh, arch_t arch, const void *elfStruct, uns
 //------------------------------------------------------------------------------------------------------------------------------
 //                                           P U B L I C   F U N C T I O N S
 //------------------------------------------------------------------------------------------------------------------------------
-int get_elf_size() {
+unsigned int get_elf_size() {
 	//
 	// Description:
 	//	It returns the executable code size or -1 for eror
@@ -322,5 +322,5 @@ int get_elf_size() {
 
 	if (fh) fclose(fh);
 	
-	return(err < 0 ? -1 : size);
+	return(err < 0 ? 0 : size);
 }

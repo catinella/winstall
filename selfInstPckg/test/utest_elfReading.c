@@ -32,10 +32,8 @@
 #define MAXLINELEN 1024
 
 TEST (get_elf_size, with_text) {
-	int   size = get_elf_size();
-	//int   size = 33152;
-	FILE  *fhS = NULL;
-	FILE  *fhT = NULL;
+	unsigned int size = get_elf_size();
+	FILE         *fhS = NULL, *fhT = NULL;
 
 	ASSERT_TRUE (size > 0);
 

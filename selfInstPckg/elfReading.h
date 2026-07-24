@@ -19,6 +19,6 @@
 
 #include <stdio.h>
 
-int get_elf_size();
+unsigned int get_elf_size();
 
 #endif
