@@ -161,6 +161,10 @@ sexiErrorCode_t archiveExtractor_close () {
 	// Description:
 	//	It release all used memory resources and close the channel to the executable binary file
 	//
+	// Returned code:
+	//	SEXIEC_SUCCESS
+	//	SEXIEC_WARNING_NOTHINGTODO
+	//
 	sexiErrorCode_t ec = SEXIEC_SUCCESS;
 
 	if (isOpen) {
@@ -168,8 +172,11 @@ sexiErrorCode_t archiveExtractor_close () {
 		archive_read_free(tgzArch);
 		fclose(fh);
 		isOpen = false;
-	}
-	
+
+	} else
+		// WARNING
+		ec = SEXIEC_WARNING_NOTHINGTODO;
+		
 	return(ec);
 }
 
