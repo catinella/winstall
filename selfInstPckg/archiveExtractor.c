@@ -43,6 +43,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <elfReading.h>
 
 #define READ_BUFFER_SIZE (64 * 1024)
 
@@ -142,14 +143,15 @@ sexiErrorCode_t archiveExtractor_open () {
 			archive_read_close(tgzArch);
 			archive_read_free(tgzArch);
 
-		} else
+		} else {
 			// SUCCESS
 			_dbgLog (3, __LINE__, "archiveExtractor_open() terminated with SUCCESS\n");
 			isOpen = true;
+		}
 	}
 
 	if (SEXIEC_ISERROR(ec) && fh != NULL)
-		close(fh);
+		fclose(fh);
 		
 	return(ec);
 }
