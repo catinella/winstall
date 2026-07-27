@@ -32,10 +32,11 @@
 #define MAXLINELEN 1024
 
 TEST (get_elf_size, with_text) {
-	unsigned int size = get_elf_size();
+	unsigned int size = 0;
 	FILE         *fhS = NULL, *fhT = NULL;
+	sexiErrorCode_t ec = elfReading_getSize(&size);
 
-	ASSERT_TRUE (size > 0);
+	ASSERT_TRUE (SEXIEC_ISERROR(ec) == false);
 
 	if ((fhT = fopen(MYPROC, "r")) == NULL) {
 		// ERROR

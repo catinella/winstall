@@ -61,7 +61,7 @@ static FILE* __readProc() {
 	return(out);
 }
 
-static bool __sizeCalculation (FILE *fh, arch_t arch, const void *elfStruct, unsigned int *size) {
+static sexiErrorCode_t __sizeCalculation (FILE *fh, arch_t arch, const void *elfStruct, unsigned int *size) {
 	//
 	// Description:
 	//	This function reads the Program and Section header table's items and calcule the effective executable code size
@@ -97,14 +97,17 @@ static bool __sizeCalculation (FILE *fh, arch_t arch, const void *elfStruct, uns
 	//			0        1000                 5000      5200        8000     8300
 	//			|---------|////////////////////|---------|////////////|--------|
 	//
+	// Returned value:
+	//	SEXIEC_SUCCESS
+	//	SEXIEC_ERROR_IOOPFAILED
 	//
-	Elf64_Phdr   phdr64;
-	Elf32_Phdr   phdr32;
-	off_t        segment_end;
-	off_t        elf_end = 0;
-	bool         out     = true;
-	Elf64_Ehdr   *ehdr64 = NULL;
-	Elf32_Ehdr   *ehdr32 = NULL;
+	Elf64_Phdr      phdr64;
+	Elf32_Phdr      phdr32;
+	off_t           segment_end;
+	off_t           elf_end = 0;
+	sexiErrorCode_t ec = SEXIEC_SUCCESS;
+	Elf64_Ehdr      *ehdr64 = NULL;
+	Elf32_Ehdr      *ehdr32 = NULL;
 	
 	// Size reset
 	*size = 0;
@@ -121,7 +124,7 @@ static bool __sizeCalculation (FILE *fh, arch_t arch, const void *elfStruct, uns
 		(arch == x32bit && fseeko(fh, ehdr32->e_phoff, SEEK_SET) != 0)
 	) {
 		// ERROR!
-		out = false;
+		ec = SEXIEC_ERROR_IOOPFAILED;
 
 	} else {
 		unsigned int prgHeadNum   = (arch == x64bit) ? ehdr64->e_phnum : ehdr32->e_phnum;
@@ -150,7 +153,7 @@ static bool __sizeCalculation (FILE *fh, arch_t arch, const void *elfStruct, uns
 					(arch == x32bit && fread(&phdr32, sizeof(phdr32), 1, fh) != 1)
 				) {
 					// ERROR!
-					out = false;
+					ec = SEXIEC_ERROR_IOOPFAILED;
 					break;
 
 				} else {
@@ -174,7 +177,7 @@ static bool __sizeCalculation (FILE *fh, arch_t arch, const void *elfStruct, uns
 				(arch == x32bit && fseeko(fh, ehdr32->e_shoff, SEEK_SET) != 0) 
 			) {
 				// ERROR!
-				out = false;
+				ec = SEXIEC_ERROR_IOOPFAILED;
 				
 			} else {
 				Elf64_Shdr   shdr64;
@@ -188,7 +191,7 @@ static bool __sizeCalculation (FILE *fh, arch_t arch, const void *elfStruct, uns
 						(arch == x32bit && fread(&shdr32, sizeof(shdr32), 1, fh) != 1)
 					) {
 						// ERROR!
-						out = false;
+						ec = SEXIEC_ERROR_IOOPFAILED;
 						break;
 
 					} else {
@@ -212,13 +215,13 @@ static bool __sizeCalculation (FILE *fh, arch_t arch, const void *elfStruct, uns
 		}
 	}
 
-	return(out);
+	return(ec);
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
 //                                           P U B L I C   F U N C T I O N S
 //------------------------------------------------------------------------------------------------------------------------------
-unsigned int get_elf_size() {
+sexiErrorCode_t elfReading_getSize (unsigned int *binSize) {
 	//
 	// Description:
 	//	It returns the executable code size or -1 for eror
@@ -243,52 +246,59 @@ unsigned int get_elf_size() {
 	//			ident[EI_DATA]
 	//			ident[EI_VERSION]
 	//
+	// Returned value:
+	//	SEXIEC_SUCCESS               The binary file's sectionsize has been correctly calculated
+	//	SEXIEC_ERROR_IOOPFAILED      Some error encountered in reading/seeking operations
+	//	SEXIEC_ERROR_CORRUPTEDDATA   Unknown of incoherent internal ELF structures met
 	//
           
 	uint8_t ident[EI_NIDENT];
 	FILE    *fh = __readProc();
-	int     err = 0;
-	unsigned int size = 0;
+	sexiErrorCode_t ec = SEXIEC_SUCCESS;
 	
 	// Checking for function's arguments
+	if (binSize == NULL)
+		// ERROR!
+		ec = SEXIEC_ERROR_ILLEGALARG;
+
+	// Checking for MYPROC file
 	if (fh == NULL) {
 		// ERROR!
-		err = -2;
+		ec = SEXIEC_ERROR_IOOPFAILED;
 
 	// ELFMAG field reading
 	} else if (fread(ident, sizeof(ident), 1, fh) != 1) {
 		// ERROR!
-		err = -1;
+		ec = SEXIEC_ERROR_IOOPFAILED;
 
 	// Rewind
 	} else if (fseeko(fh, 0, SEEK_SET) != 0) {
 		// ERROR!
-		err = -1;
+		ec = SEXIEC_ERROR_IOOPFAILED;
 
 	} else {
+		*binSize = 0;
+		
 		if (ident[EI_CLASS] == ELFCLASS64) {
 			Elf64_Ehdr ehdr;
 
 			// The whole Elf64_Ehdr structure reading
 			if (fread(&ehdr, sizeof(ehdr), 1, fh) != 1) {
 				// ERROR!
-				err = -1;
+				ec = SEXIEC_ERROR_IOOPFAILED;
 			
 			// Entry size
 			} else if (ehdr.e_phentsize != sizeof(Elf64_Phdr)) {
 				// ERROR!
-				err = -1;
+				ec = SEXIEC_ERROR_CORRUPTEDDATA;
 
 			// Number of entries
 			} else if (ehdr.e_phnum == 0) {
 				// ERROR!
-				err = -1;
-
-			} else if (__sizeCalculation (fh, x64bit, (void*)&ehdr, &size) == false) {
-				// ERROR!
-				err = -1;
+				ec = SEXIEC_ERROR_CORRUPTEDDATA;
 
 			} else { 
+				ec = __sizeCalculation (fh, x64bit, (void*)&ehdr, binSize);
 				//printf("DEBUG(%d)! arch = 64bit; size = %d bytes\n", __LINE__, size);
 			}
 			
@@ -298,23 +308,20 @@ unsigned int get_elf_size() {
 			// The whole Elf32_Ehdr structure reading
 			if (fread(&ehdr, sizeof(ehdr), 1, fh) != 1) {
 				// ERROR!
-				err = -1;
+				ec = SEXIEC_ERROR_IOOPFAILED;
 			
 			// Entry size
 			} else if (ehdr.e_phentsize != sizeof(Elf32_Phdr)) {
 				// ERROR!
-				err = -1;
+				ec = SEXIEC_ERROR_CORRUPTEDDATA;
 
 			// Number of entries
 			} else if (ehdr.e_phnum == 0) {
 				// ERROR!
-				err = -1;
+				ec = SEXIEC_ERROR_CORRUPTEDDATA;
 
-			} else if (__sizeCalculation (fh, x32bit, (void*)&ehdr, &size) == false) {
-				// ERROR!
-				err = -1;
-				
 			} else {
+				ec = __sizeCalculation (fh, x32bit, (void*)&ehdr, binSize);
 				// printf("DEBUG(%d)! arch = 32bit; size = %d bytes\n", __LINE__, size);
 			}
 		}
@@ -322,5 +329,5 @@ unsigned int get_elf_size() {
 
 	if (fh) fclose(fh);
 	
-	return(err < 0 ? 0 : size);
+	return(ec);
 }

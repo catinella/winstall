@@ -17,8 +17,9 @@
 #ifndef __ELFREADING__
 #define __ELFREADING__
 
+#include <sexiErrorCodes.h>
 #include <stdio.h>
 
-unsigned int get_elf_size();
+sexiErrorCode_t elfReading_getSize (unsigned int *binSize);
 
 #endif
