@@ -43,6 +43,8 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <string.h>
+#include <limits.h>
 #include <elfReading.h>
 
 #define READ_BUFFER_SIZE (64 * 1024)
@@ -54,9 +56,9 @@
 #endif
 
 #if DEBUG > 0
-#define DBGLOG(LEV, ROW, ...) _dbgLog(X, ROW, __VA_ARGS__)
+#define DBGLOG(X, ...) _dbgLog(X, __LINE__, __VA_ARGS__)
 #else
-#define DBGLOG(...)      ;
+#define DBGLOG(...)    ;
 #endif
 
 static FILE           *fh      = NULL;
@@ -108,18 +110,18 @@ sexiErrorCode_t archiveExtractor_open () {
 	// Get data section offset
 	if (SEXIEC_ISERROR(ec))
 		// ERROR!
-		_dbgLog (1, __LINE__, "elfReading_getSize() failed\n");
+		DBGLOG(1, "elfReading_getSize() failed\n");
 		
 	// Open myself
 	else if ((fh = fopen(MYSELF, "rb")) == NULL) {
 		// ERROR!
-		_dbgLog (1, __LINE__, "fopen(\"%s\") failed\n", MYSELF);
+		DBGLOG(1, "fopen(\"%s\") failed\n", MYSELF);
 		ec = SEXIEC_ERROR_IOOPFAILED;
 			
 	// Seek for data section
 	} else if (fseeko(fh, elfSize, SEEK_SET) != 0) {
 		// ERROR!
-		_dbgLog (1, __LINE__, "fseek() failed\n");
+		DBGLOG(1, "fseek() failed\n");
 		ec = SEXIEC_ERROR_IOOPFAILED;
 
 	} else {
@@ -128,7 +130,7 @@ sexiErrorCode_t archiveExtractor_open () {
 		// Checking for archive manager
 		if (tgzArch == NULL) {
 			// ERROR!
-			_dbgLog (1, __LINE__, "archive_read_new() failed\n");
+			DBGLOG(1, "archive_read_new() failed\n");
 			ec = SEXIEC_ERROR_SYSRESOURCES;
 
 		// Cchecking for TGZ format
@@ -138,14 +140,14 @@ sexiErrorCode_t archiveExtractor_open () {
 
 		) {
 			// ERROR!
-			_dbgLog (1, __LINE__, "Not supported data format\n");
+			DBGLOG(1, "Not supported data format\n");
 			ec = SEXIEC_ERROR_UNKNOWNFORMAT;
 			archive_read_close(tgzArch);
 			archive_read_free(tgzArch);
 
 		} else {
 			// SUCCESS
-			_dbgLog (3, __LINE__, "archiveExtractor_open() terminated with SUCCESS\n");
+			DBGLOG(3, "archiveExtractor_open() terminated with SUCCESS\n");
 			isOpen = true;
 		}
 	}
@@ -172,6 +174,8 @@ sexiErrorCode_t archiveExtractor_close () {
 		archive_read_free(tgzArch);
 		fclose(fh);
 		isOpen = false;
+		tgzArch = NULL;
+		fh = NULL;
 
 	} else
 		// WARNING
@@ -186,8 +190,82 @@ sexiErrorCode_t archiveExtractor_extract (const char *file) {
 	//	This function extract the argument defined file (or directory). If the argument is not secyfied (file == NULL),
 	//	then all archived files will be extracted
 	//
-	sexiErrorCode_t ec = SEXIEC_SUCCESS;
+	sexiErrorCode_t ec    = SEXIEC_SUCCESS;
+	struct archive  *disk = archive_write_disk_new();
 
+	if (disk == NULL) {
+		// ERROR
+		ec = SEXIEC_ERROR_SYSRESOURCES;
+		DBGLOG(1, "No enugh refourse for archive_write_disk_new() hinstance\n");
+		
+	// It sets how to restore data files
+	} else if (archive_write_disk_set_options(
+		disk, ARCHIVE_EXTRACT_TIME | ARCHIVE_EXTRACT_PERM | ARCHIVE_EXTRACT_ACL  | ARCHIVE_EXTRACT_FFLAGS
+	) != ARCHIVE_OK) {
+		// ERROR!
+		ec = SEXIEC_ERROR_ARCHIVELIB;
+		DBGLOG(1, "archive_write_disk_set_options() call failed\n");
+		
+	// It installs a standard set of user and group lookup functions.
+	} else if (archive_write_disk_set_standard_lookup(disk) != ARCHIVE_OK) {
+		// ERROR!
+		ec = SEXIEC_ERROR_ARCHIVELIB;
+		DBGLOG(1, "archive_write_disk_set_standard_lookup() call failed\n");
+
+	} else {
+		struct archive_entry *entry = NULL;
+		int                  result = ARCHIVE_OK;
+		char                 fileDir[PATH_MAX];
+
+		strcpy(fileDir, file);
+		strcat(fileDir, "/");
+		
+		while ((result = archive_read_next_header(tgzArch, &entry)) == ARCHIVE_OK) {
+			const char *path = archive_entry_pathname(entry);
+
+			if (file == NULL || strncmp(path, fileDir, strlen(fileDir)) == 0 || strcmp(path, file) == 0) {
+				// file extraction
+				result = archive_write_header(disk, entry);
+
+				// === SUCCESS ===
+				if (result == ARCHIVE_OK || result == ARCHIVE_WARN) {
+					const void *data = NULL;
+					size_t      size = 0;
+					la_int64_t  offset = 0;
+
+					DBGLOG(3, "%s extracting...\n", path);
+					
+					// Reading file content
+					while ((result = archive_read_data_block(tgzArch, &data, &size, &offset)) == ARCHIVE_OK) {
+
+						// Writing file content
+						result = archive_write_data_block(disk, data, size, offset);
+
+						if (result != ARCHIVE_OK && result != ARCHIVE_WARN) {
+							// ERROR!
+							ec = SEXIEC_ERROR_ARCHIVELIB;
+							DBGLOG(1, "Unable to extract '%s': %s", path, archive_error_string(disk));
+						}
+					}
+
+					// Checking for operation's exit-code
+					if (archive_write_finish_entry(disk) != ARCHIVE_OK) {
+						// ERROR!
+						ec = SEXIEC_ERROR_ARCHIVELIB;
+						DBGLOG(1, "Unable to complete '%s': %s", path, archive_error_string(disk));
+					}
+    
+				} else {
+					// ERROR!
+					ec = SEXIEC_ERROR_IOOPFAILED;
+					DBGLOG(1, "archive_write_header() failed");
+				}
+			}
+		} // === WHILE LOOP ===
+	}
+
+	if (SEXIEC_ISERROR(ec)) archiveExtractor_close();
+	
 	return(ec);
 }
 
