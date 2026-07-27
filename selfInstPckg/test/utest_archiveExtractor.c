@@ -25,8 +25,15 @@
 #include <unistd.h>
 
 TEST (archiveExtractor, fooDataExtraction) {
+	sexiErrorCode_t ec = SEXIEC_SUCCESS;
+	ec = archiveExtractor_close();
+	ASSERT_TRUE (SEXIEC_ISWARNING(ec));
 
-
+	ec = archiveExtractor_open();
+	ASSERT_TRUE (SEXIEC_ISERROR(ec) == false);
+	
+	ec = archiveExtractor_close();
+	ASSERT_TRUE (SEXIEC_ISSUCCESS(ec));
 }
 
 
