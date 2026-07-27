@@ -24,15 +24,18 @@ MINUTE_PRFX ?= /usr/local
 GDB         ?= 0
 TEXTFILE    ?= /etc/passwd
 TGZFILE     ?= utest_archiveExtractor.tar.gz
+DEBUG       ?= 0
 
 INCLUDE = -I. -I../ -I$(MINUTE_PRFX)/include
 CODEGEN = $(MINUTE_PRFX)/share/minute/minute_cCodeGenerator.py
 LIB     = -L$(MINUTE_PRFX)/lib -lMinuteC $(shell pkg-config --libs libarchive) -lc
+SYMBOLS = "-DDEBUG=$(DEBUG)" "-DTEXTFILE=\"$(TEXTFILE)\""
 
 ifeq ($(GDB), 0)
 CFLAGS = -Wall -O2
 else
 CFLAGS = -Wall -g -O0
+$(warning GDB support added)
 endif
 
 .PHONY: clean cleanall
@@ -59,7 +62,7 @@ utest_%:			utest_%.o %.o
 
 utest_%.o:			utest_%.c utest_%__main.sgc
 				@echo "[ CC ] $@"
-				@gcc $(CFLAGS) -o $@ $(INCLUDE) "-DTEXTFILE=\"$(TEXTFILE)\"" -c $<
+				@gcc $(CFLAGS) -o $@ $(INCLUDE) $(SYMBOLS) -c $<
 
 %__main.sgc:		%.c
 				@echo "[SCRIPT] $@"
@@ -67,7 +70,7 @@ utest_%.o:			utest_%.c utest_%__main.sgc
 
 %.o:				../%.c ../%.h
 				@echo "[ CC* ] $@"
-				@gcc $(CFLAGS) -o $@ $(INCLUDE) -c $<
+				@gcc $(CFLAGS) -o $@ $(INCLUDE) $(SYMBOLS) -c $<
 
 clean:
 				@echo "[CLEAN]"
