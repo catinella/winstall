@@ -23,11 +23,11 @@ EXEs := $(SRCs:.c=)
 MINUTE_PRFX ?= /usr/local
 GDB         ?= 0
 TEXTFILE    ?= /etc/passwd
+TGZFILE     ?= utest_archiveExtractor.tar.gz
 
 INCLUDE = -I. -I../ -I$(MINUTE_PRFX)/include
-
 CODEGEN = $(MINUTE_PRFX)/share/minute/minute_cCodeGenerator.py
-LIB     = -L$(MINUTE_PRFX)/lib -lMinuteC
+LIB     = -L$(MINUTE_PRFX)/lib -lMinuteC $(shell pkg-config --libs libarchive) -lc
 
 ifeq ($(GDB), 0)
 CFLAGS = -Wall -O2
@@ -37,33 +37,41 @@ endif
 
 .PHONY: clean cleanall
 
-aLL:			$(EXEs)
+all:				$(EXEs)
 
-utest_elfReading:	utest_elfReading.o elfReading.o
-			@echo "[ LD* ] $@"
-			@gcc -Wall -o $@ $^ $(LIB)
-			@echo "[ ADD ] $(TEXTFILE)"
-			@cat $(TEXTFILE) >> $@
+utest_archiveExtractor:	utest_archiveExtractor.o archiveExtractor.o elfReading.o
+				@echo "[ LD* ] $@"
+				@gcc -Wall -o $@ $^ $(LIB)
+				@echo "[SCRIPT] $(TGZFILE)"
+				@./makeFooArchive.sh "$(TGZFILE)"
+				@echo "[ ADD ] $(TGZFILE)"
+				@cat $(TGZFILE) >> $@
 
-utest_%:		utest_%.o %.o
-			@echo "[ LD ] $@"
-			@gcc -Wall -o $@ $^ $(LIB)
+utest_elfReading:		utest_elfReading.o elfReading.o
+				@echo "[ LD* ] $@"
+				@gcc -Wall -o $@ $^ $(LIB)
+				@echo "[ ADD ] $(TEXTFILE)"
+				@cat $(TEXTFILE) >> $@
 
-utest_%.o:		utest_%.c utest_%__main.sgc
-			@echo "[ CC ] $@"
-			@gcc $(CFLAGS) -o $@ $(INCLUDE) "-DTEXTFILE=\"$(TEXTFILE)\"" -c $<
+utest_%:			utest_%.o %.o
+				@echo "[ LD ] $@"
+				@gcc -Wall -o $@ $^ $(LIB)
 
-%__main.sgc:	%.c
-			@echo "[SCRIPT] $@"
-			@$(CODEGEN) --srcFilename=$< --tgtFilename=$@
+utest_%.o:			utest_%.c utest_%__main.sgc
+				@echo "[ CC ] $@"
+				@gcc $(CFLAGS) -o $@ $(INCLUDE) "-DTEXTFILE=\"$(TEXTFILE)\"" -c $<
 
-%.o:			../%.c ../%.h
-			@echo "[ CC* ] $@"
-			@gcc $(CFLAGS) -o $@ $(INCLUDE) -c $<
+%__main.sgc:		%.c
+				@echo "[SCRIPT] $@"
+				@$(CODEGEN) --srcFilename=$< --tgtFilename=$@
+
+%.o:				../%.c ../%.h
+				@echo "[ CC* ] $@"
+				@gcc $(CFLAGS) -o $@ $(INCLUDE) -c $<
 
 clean:
-			@echo "[CLEAN]"
-			@rm -fv *.o *__main.sgc
+				@echo "[CLEAN]"
+				@rm -fv *.o *__main.sgc
 
-cleanall:		clean
-			@rm -fv $(EXEs)
+cleanall:			clean
+				@rm -fv $(EXEs) $(TGZFILE)
