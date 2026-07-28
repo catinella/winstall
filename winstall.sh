@@ -323,6 +323,10 @@ else
 	
 	if [ "$cmd" = "pkg" ]; then
 		[ $VERBOSE -eq 1 ] && printTitle "pkg construction..." 2
+
+		#
+		# Packaging script collecting
+		#
 		[ -n "$POSTINST" -o -n "$PREINST" ] && {
 			if mkdir "$TMPFOLDER/winstall" ; then
 				[ -n "$POSTINST" ] && {
@@ -339,6 +343,10 @@ else
 				errAndExit "I cannot create the \"$TMPFOLDER/winstall\" dir" 164
 			fi
 		}
+		
+		#
+		# Files archiving
+		#
 		if cd "$TMPFOLDER" ; then
 			#echo "[i] Temp directory: $PWD"
 			tar cvzf "${callerPWD}/${PRJNAME}.tgz" * || \
@@ -348,6 +356,14 @@ else
 			errAndExit "I cannot enter in the \"$TMPFOLDER\" directory" 145
 		fi
 	
+		# Self extracting pkg configuration file
+		winstallConfFile="$(freeName /tmp/winstallConf.h)"
+		sed -n 's/^[\t ]*\([^=# ]\+\)=\([^=# ]\+\).*$/#define \1 \2/p' $CONFFILE > $winstallConfFile
+
+		WINSTALLCONF=$winstallConfFile PRJNAME=$PRJNAME make -C "$myPwd/selfInstPckg"
+		cd "$callerPWD"
+		cp -fv "$myPwd/selfInstPckg/$PRJNAME.bin" .
+
 	elif [ "$cmd" = "install" ]; then
 		err=0
 
