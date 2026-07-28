@@ -25,6 +25,14 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
+void _chomp (char *string_a) {
+	unsigned int x = (strlen(string_a) - 1);
+	while (x > 0 && string_a[x] == '\n') {
+		string_a[x] = '\0';
+		x--;
+	}
+}
+
 TEST (archiveExtractor, openAndClose) {
 	sexiErrorCode_t ec = SEXIEC_SUCCESS;
 	
@@ -65,6 +73,7 @@ TEST (archiveExtractor, fooDataExtraction) {
 
 		if (fh) {
 			if (fgets(buffer, sizeof(buffer), fh) != NULL) {
+				_chomp(buffer);
 				ASSERT_EQ(strcmp("22222222", buffer), 0);
 			} else {
 				// ERROR!
