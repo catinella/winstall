@@ -11,7 +11,15 @@
 # Author: Silvano Catinella <catinella@yahoo.com>
 #	
 # Description:
-#	This Makefile allows you to test the external software components
+#	This Makefile allows you to test the single software components
+#
+#	Configurable symbols:
+#		GDB         = {0|1}         # It enables the GCC debugger support
+#		DEBUG       = {0-3}         # It sets the debug messages verbosity (0=silence)
+#		MINUTE_PRFX = <folder>      # It allows you to specify a different installation path prefix for Minute software
+#		TEXTFILE    = <filename>    # The text file used by utest_elfReading unit-test
+#		TGZFILE     = <filename>    # The foo data archive used by utest_archiveExtractor unit test
+#
 #
 #-------------------------------------------------------------------------------------------------------------------------------
 MAKEFLAGS += -r
