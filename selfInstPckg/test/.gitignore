@@ -1,2 +1,4 @@
 utest_elfReading
 utest_archiveExtractor
+*.tar.gz
+*.tgz
