@@ -86,3 +86,4 @@ clean:
 
 cleanall:			clean
 				@rm -fv $(EXEs) $(TGZFILE)
+				@rm -rfv fooData
