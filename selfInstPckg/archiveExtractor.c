@@ -74,13 +74,14 @@ void _dbgLog (uint8_t dbgLev, unsigned int line, const char *fmt, ...) {
 	//
 	va_list args;
 
-	va_start(args, fmt);
 	if (dbgLev <= DEBUG) {
 		printf("[DEBUG(%d)]: ", line);
 		if      (dbgLev == 1) printf("ERROR!:  ");
 		else if (dbgLev == 2) printf("WARNING: ");
 		else if (dbgLev == 3) printf("INFO:    ");
-		printf(fmt, args);
+		va_start(args, fmt);
+		vprintf(fmt, args);
+		va_end(args);
 	}
 }
 
@@ -108,12 +109,12 @@ sexiErrorCode_t archiveExtractor_open () {
 	sexiErrorCode_t ec = elfReading_getSize(&elfSize);
 	
 	// Get data section offset
-	if (SEXIEC_ISERROR(ec))
+	if (SEXIEC_ISERROR(ec)) {
 		// ERROR!
 		DBGLOG(1, "elfReading_getSize() failed\n");
 		
 	// Open myself
-	else if ((fh = fopen(MYSELF, "rb")) == NULL) {
+	} else if ((fh = fopen(MYSELF, "rb")) == NULL) {
 		// ERROR!
 		DBGLOG(1, "fopen(\"%s\") failed\n", MYSELF);
 		ec = SEXIEC_ERROR_IOOPFAILED;
@@ -142,9 +143,12 @@ sexiErrorCode_t archiveExtractor_open () {
 			// ERROR!
 			DBGLOG(1, "Not supported data format\n");
 			ec = SEXIEC_ERROR_UNKNOWNFORMAT;
-			archive_read_close(tgzArch);
-			archive_read_free(tgzArch);
 
+		} else if (archive_read_open_FILE(tgzArch, fh) != ARCHIVE_OK) {
+			// ERROR!
+			DBGLOG(1, "archive_read_open_FILE() failed\n");
+			ec = SEXIEC_ERROR_ARCHIVELIB;
+			
 		} else {
 			// SUCCESS
 			DBGLOG(3, "archiveExtractor_open() terminated with SUCCESS\n");
@@ -152,8 +156,8 @@ sexiErrorCode_t archiveExtractor_open () {
 		}
 	}
 
-	if (SEXIEC_ISERROR(ec) && fh != NULL)
-		fclose(fh);
+	if (SEXIEC_ISERROR(ec))
+		archiveExtractor_close();
 		
 	return(ec);
 }
@@ -216,14 +220,23 @@ sexiErrorCode_t archiveExtractor_extract (const char *file) {
 		struct archive_entry *entry = NULL;
 		int                  result = ARCHIVE_OK;
 		char                 fileDir[PATH_MAX];
+		char                 tgtFile[PATH_MAX];
 
-		strcpy(fileDir, file);
+		if (file[0] == '/' || (file[0] == '.' && file[1] == '/')) {
+			strcpy(fileDir, file);
+			strcpy(tgtFile, file);
+		} else {
+			strcpy(fileDir, "./");
+			strcpy(tgtFile, "./");
+			strcat(fileDir, file);
+			strcat(tgtFile, file);
+		}
 		strcat(fileDir, "/");
 		
 		while ((result = archive_read_next_header(tgzArch, &entry)) == ARCHIVE_OK) {
 			const char *path = archive_entry_pathname(entry);
 
-			if (file == NULL || strncmp(path, fileDir, strlen(fileDir)) == 0 || strcmp(path, file) == 0) {
+			if (file == NULL || strncmp(path, fileDir, strlen(fileDir)) == 0 || strcmp(path, tgtFile) == 0) {
 				// file extraction
 				result = archive_write_header(disk, entry);
 
@@ -262,6 +275,9 @@ sexiErrorCode_t archiveExtractor_extract (const char *file) {
 				}
 			}
 		} // === WHILE LOOP ===
+		if (result != ARCHIVE_OK) {
+			DBGLOG(1, "archive_read_next_header() failed: ret-code=%d; errno=%d\n", result, archive_errno(tgzArch));
+		}
 	}
 
 	if (SEXIEC_ISERROR(ec)) archiveExtractor_close();
