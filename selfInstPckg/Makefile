@@ -40,6 +40,14 @@ OBJs := $(SRCs:.c=.o)
 INCLUDE = -I. $(shell pkg-config --cflags glib-2.0)
 LIB     = $(shell pkg-config --libs glib-2.0) $(shell pkg-config --libs libarchive)
 
+GDB ?= 0
+
+ifeq ($(GDB), 0)
+CFLAGS = -Wall -O2
+else
+CFLAGS = -Wall -g -O0
+$(warning GDB support added)
+endif
 
 
 .PHONY: clean
@@ -52,7 +60,7 @@ selfInstaller:	selfInstaller.o $(OBJs);
 
 %.o:			%.c
 			@echo "[ CC ] $@"
-			@gcc -Wall -o $@ $(INCLUDE) -c $<
+			@gcc $(CFLAGS) -o $@ $(INCLUDE) -c $<
 
 %.c:			%.c.tmpl
 			@echo "[SCRIPT] $@"
@@ -65,12 +73,13 @@ selfInstaller:	selfInstaller.o $(OBJs);
 
 $(PRJNAME).bin:	selfInstaller $(TGZ)
 			@echo "[SCRIPT] $@"
-			@if [ -n "$(PRJNAME)" ]; then \
-				cat $^ > $@
-			else                                                        \
-				echo "ERROR! PRJNAME is undefined symbol";       \
-				exit 127;                                             \
+			@if [ -n "$(PRJNAME)" ]; then                     \
+				cat $^ > $@ ;                               \
+			else                                              \
+				echo "ERROR! PRJNAME is undefined symbol";  \
+				exit 127;                                   \
 			fi
+			@chmod 550 $@
 
 clean:
 			@echo "[CLEAN]"
