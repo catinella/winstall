@@ -138,6 +138,18 @@ printTitle() {
 	esac
 	return 0
 }
+
+freeName() {
+	local name="$1"
+	local -i c=0
+	while [ -e "$name" ]
+	do
+		name="${1}-${c}"
+		c=$(($c + 1))
+	done
+	echo "$name"
+	return 0
+}
 #-------------------------------------------------------------------------------------------------------------------------------
 #                                                      M A I N 
 #-------------------------------------------------------------------------------------------------------------------------------
@@ -359,8 +371,8 @@ else
 		# Self extracting pkg configuration file
 		winstallConfFile="$(freeName /tmp/winstallConf.h)"
 		sed -n 's/^[\t ]*\([^=# ]\+\)=\([^=# ]\+\).*$/#define \1 \2/p' $CONFFILE > $winstallConfFile
-
-		WINSTALLCONF=$winstallConfFile PRJNAME=$PRJNAME make -C "$myPwd/selfInstPckg"
+		
+		WINSTALLCONF="$winstallConfFile" PRJNAME="$PRJNAME" make -C "$myPwd/selfInstPckg"
 		cd "$callerPWD"
 		cp -fv "$myPwd/selfInstPckg/$PRJNAME.bin" .
 
