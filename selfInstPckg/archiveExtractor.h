@@ -27,9 +27,10 @@
 #define __ARCHIVEEXTRACTOR__
 
 #include <sexiErrorCodes.h>
+#include <glib.h>
 
 sexiErrorCode_t archiveExtractor_open    ();
 sexiErrorCode_t archiveExtractor_close   ();
-sexiErrorCode_t archiveExtractor_extract (const char *file);
+sexiErrorCode_t archiveExtractor_extract (const char *file, GPtrArray *extrFilesList);
 
 #endif

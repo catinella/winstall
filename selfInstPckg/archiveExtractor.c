@@ -188,7 +188,7 @@ sexiErrorCode_t archiveExtractor_close () {
 	return(ec);
 }
 
-sexiErrorCode_t archiveExtractor_extract (const char *file) {
+sexiErrorCode_t archiveExtractor_extract (const char *file, GPtrArray *extrFilesList) {
 	//
 	// Description:
 	//	This function extract the argument defined file (or directory). If the argument is not secyfied (file == NULL),
@@ -237,6 +237,7 @@ sexiErrorCode_t archiveExtractor_extract (const char *file) {
 		
 		while ((result = archive_read_next_header(tgzArch, &entry)) == ARCHIVE_OK) {
 			const char *path = archive_entry_pathname(entry);
+			// printf("---> %s : %s\n", path, file);
 
 			if (file == NULL || strncmp(path, fileDir, strlen(fileDir)) == 0 || strcmp(path, tgtFile) == 0) {
 				// file extraction
@@ -260,14 +261,22 @@ sexiErrorCode_t archiveExtractor_extract (const char *file) {
 							// ERROR!
 							ec = SEXIEC_ERROR_ARCHIVELIB;
 							DBGLOG(1, "Unable to extract '%s': %s", path, archive_error_string(disk));
+							break;
 						}
 					}
 
 					// Checking for operation's exit-code
-					if (archive_write_finish_entry(disk) != ARCHIVE_OK) {
+					ec = archive_write_finish_entry(disk);
+					if (ec != ARCHIVE_OK && ec != ARCHIVE_WARN) {
 						// ERROR!
 						ec = SEXIEC_ERROR_ARCHIVELIB;
 						DBGLOG(1, "Unable to complete '%s': %s", path, archive_error_string(disk));
+					
+					} else if (extrFilesList != NULL) {
+						DBGTRACE
+						// Adding file to the list of the installed ones
+						printf("%s adding...\n", path);
+						g_ptr_array_add(extrFilesList, g_strdup(path));
 					}
     
 				} else {
