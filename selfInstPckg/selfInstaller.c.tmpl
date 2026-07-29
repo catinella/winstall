@@ -403,12 +403,17 @@ int main (int argc, char *argv[]) {
 			LOGMSG(SEXIEC_ERROR_SYSCALLFAILED, "I cannot change my position inside the Filesystem\n");
 
 		} else {
+			char preInstFile[PATH_MAX];
+			char postInstFile[PATH_MAX];
+
+			strcpy(preInstFile,  PREINST);
+			strcpy(postInstFile, POSTINST);
+			
 			// Checking for the pre-install script
-			if (*PREINST != '\0') {
-
+			if (*preInstFile != '\0') {
 				struct stat statbuf;
-				char        preInstFile[PATH_MAX];
-
+				preInstFile[0] = '\0';
+				
 				// /winstall folder extraction
 				if (archiveExtractor_extract(WFOLDER)) {
 					// ERROR!
@@ -475,10 +480,10 @@ int main (int argc, char *argv[]) {
 				}
 
 				// Post install script execution
-				if (*POSTINST != '\0') {
+				if (*postInstFile != '\0') {
 					struct stat statbuf;
-					char        postInstFile[PATH_MAX];
-
+					postInstFile[0] = '\0';
+					
 					if (filesGlue(WFOLDER, PREINST, postInstFile) == false) {
 						// ERROR!
 						rm_rf(WFOLDER);
