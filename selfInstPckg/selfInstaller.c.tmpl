@@ -402,23 +402,31 @@ int main (int argc, char *argv[]) {
 			// ERROR!
 			LOGMSG(SEXIEC_ERROR_SYSCALLFAILED, "I cannot change my position inside the Filesystem\n");
 
+		// /winstall folder extraction
+		} else if ((ec = archiveExtractor_extract(WFOLDER, NULL)) && SEXIEC_ISERROR(ec)) {
+			// ERROR!
+			closeall();
+			LOGMSG(ec, "I cannot extract all archived files\n");
+
+		// Archive closing
+		} else if ((ec = archiveExtractor_close()) && SEXIEC_ISERROR(ec)) {
+			// ERROR!
+			closeall();
+			LOGMSG(ec, "I cannot rewind the archive\n");
+
 		} else {
 			char preInstFile[PATH_MAX];
 			char postInstFile[PATH_MAX];
 
 			strcpy(preInstFile,  PREINST);
 			strcpy(postInstFile, POSTINST);
-			
+
 			// Checking for the pre-install script
 			if (*preInstFile != '\0') {
 				struct stat statbuf;
 				preInstFile[0] = '\0';
-				
-				// /winstall folder extraction
-				if (archiveExtractor_extract(WFOLDER)) {
-					// ERROR!
 
-				} else if (filesGlue(WFOLDER, PREINST, preInstFile) == false) {
+				if (filesGlue(WFOLDER, PREINST, preInstFile) == false) {
 					// ERROR!
 					closeall();
 					LOGMSG(SEXIEC_ERROR_ILLEGALCONF, "Configured path or filename is not allowed\n");
@@ -447,8 +455,14 @@ int main (int argc, char *argv[]) {
 				
 			}
 			
+			// Archive opening
+			if ((ec = archiveExtractor_open()) && SEXIEC_ISERROR(ec)) {
+				// ERROR!
+				closeall();
+				LOGMSG(ec, "I cannot rewind the archive\n");
+
 			// Package's files extraction....
-			if ((ec = archiveExtractor_extract(NULL)) && SEXIEC_ISERROR(ec)) {
+			} else if ((ec = archiveExtractor_extract(NULL, installedFiles)) && SEXIEC_ISERROR(ec)) {
 				// ERROR!
 				closeall();
 				LOGMSG(ec, "I cannot extract all archived files\n");
@@ -467,6 +481,8 @@ int main (int argc, char *argv[]) {
 					else {
 						for (guint x = 0; x < installedFiles->len; x++) {
 							const char *filename = g_ptr_array_index(installedFiles, x);
+							//printf("REP: %s\n", filename);
+
 							if (fprintf(repFH, "/%s\n", filename) < 0) {
 								// ERROR!
 								fclose(repFH);
@@ -483,7 +499,7 @@ int main (int argc, char *argv[]) {
 				if (*postInstFile != '\0') {
 					struct stat statbuf;
 					postInstFile[0] = '\0';
-					
+
 					if (filesGlue(WFOLDER, PREINST, postInstFile) == false) {
 						// ERROR!
 						rm_rf(WFOLDER);
