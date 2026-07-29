@@ -273,7 +273,6 @@ sexiErrorCode_t archiveExtractor_extract (const char *file, GPtrArray *extrFiles
 						DBGLOG(1, "Unable to complete '%s': %s", path, archive_error_string(disk));
 					
 					} else if (extrFilesList != NULL) {
-						DBGTRACE
 						// Adding file to the list of the installed ones
 						printf("%s adding...\n", path);
 						g_ptr_array_add(extrFilesList, g_strdup(path));
