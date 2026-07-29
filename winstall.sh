@@ -372,7 +372,12 @@ else
 		winstallConfFile="$(freeName /tmp/winstallConf.h)"
 		sed -n 's/^[\t ]*\([^=# ]\+\)=\([^=# ]\+\).*$/#define \1 \2/p' $CONFFILE > $winstallConfFile
 		
-		WINSTALLCONF="$winstallConfFile" PRJNAME="$PRJNAME" make -C "$myPwd/selfInstPckg"
+		# Self-extracting package building...
+		WINSTALLCONF="$winstallConfFile"  \
+		PRJNAME="$PRJNAME"                \
+		TGZ="${callerPWD}/${PRJNAME}.tgz" \
+			make -C "$myPwd/selfInstPckg"
+
 		cd "$callerPWD"
 		cp -fv "$myPwd/selfInstPckg/$PRJNAME.bin" .
 
