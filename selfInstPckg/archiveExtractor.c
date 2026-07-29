@@ -222,16 +222,18 @@ sexiErrorCode_t archiveExtractor_extract (const char *file) {
 		char                 fileDir[PATH_MAX];
 		char                 tgtFile[PATH_MAX];
 
-		if (file[0] == '/' || (file[0] == '.' && file[1] == '/')) {
-			strcpy(fileDir, file);
-			strcpy(tgtFile, file);
-		} else {
-			strcpy(fileDir, "./");
-			strcpy(tgtFile, "./");
-			strcat(fileDir, file);
-			strcat(tgtFile, file);
+		if (file != NULL) {
+			if (file[0] == '/' || (file[0] == '.' && file[1] == '/')) {
+				strcpy(fileDir, file);
+				strcpy(tgtFile, file);
+			} else {
+				strcpy(fileDir, "./");
+				strcpy(tgtFile, "./");
+				strcat(fileDir, file);
+				strcat(tgtFile, file);
+			}
+			strcat(fileDir, "/");
 		}
-		strcat(fileDir, "/");
 		
 		while ((result = archive_read_next_header(tgzArch, &entry)) == ARCHIVE_OK) {
 			const char *path = archive_entry_pathname(entry);
