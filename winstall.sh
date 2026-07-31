@@ -271,8 +271,16 @@ elif [ "$cmd" = "uninstall" ]; then
 fi
 
 if [ "$cmd" = "uninstall" ]; then
+	ec=0
 	if [ -e "${DATALOGFOLDER}/$PRJNAME" ]; then
-		rm -fv $(cat "${DATALOGFOLDER}/$PRJNAME") && rm -fv "${DATALOGFOLDER}/$PRJNAME"
+		for file in $(cat "${DATALOGFOLDER}/$PRJNAME")
+		do
+			[ -d "$file" ] || {
+				rm -fv $file
+				ec=$?
+			}
+		done
+		[ $ec -eq 0 ] && rm -fv "${DATALOGFOLDER}/$PRJNAME"
 	else
 		errAndExit "The \"$PRJNAME\" looks like not installed" 142
 	fi
