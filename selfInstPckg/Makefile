@@ -42,6 +42,22 @@ LIB     = $(shell pkg-config --libs glib-2.0) $(shell pkg-config --libs libarchi
 
 GDB ?= 0
 
+ifndef PRJNAME
+$(error PRJNAME is not defined)
+endif
+
+ifndef WINSTALLCONF
+$(error WINSTALLCONF is not defined)
+endif
+
+ifndef PREFIX
+$(error PREFIX is not defined)
+endif
+
+ifndef TGZ
+$(error TGZ is not defined)
+endif
+
 ifeq ($(GDB), 0)
 CFLAGS = -Wall -O2
 else
@@ -60,7 +76,7 @@ selfInstaller:	selfInstaller.o $(OBJs);
 
 %.o:			%.c
 			@echo "[ CC ] $@"
-			@gcc $(CFLAGS) -o $@ $(INCLUDE) -c $<
+			@gcc $(CFLAGS) -o $@ $(INCLUDE) -c "-DPREFIX=\"$(PREFIX)\"" $<
 
 %.c:			%.c.tmpl
 			@echo "[SCRIPT] $@"
