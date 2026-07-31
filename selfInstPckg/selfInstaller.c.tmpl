@@ -106,6 +106,14 @@ typedef enum {
 //------------------------------------------------------------------------------------------------------------------------------
 //                                                F U N C T I O N S 
 //------------------------------------------------------------------------------------------------------------------------------
+void chomp (char *string_a) {
+	unsigned int x = (strlen(string_a) - 1);
+	while (x > 0 && (string_a[x] == '\n' || string_a[x] == '\r')) {
+		string_a[x] = '\0';
+		x--;
+	}
+}
+
 void printBanner (const char *dataset, unsigned int size) {
 	// TODO: Banner length calculating
 	// TODO: Terminal columns number acknowledge
@@ -301,10 +309,7 @@ int main (int argc, char *argv[]) {
 		printBanner(banner, BANNER_SIZE);
 
 		// Checking for the DATALOGFOLDER folder
-		if (
-			stat(DATALOGFOLDER, &statbuf) < 0 ||
-			S_ISDIR(statbuf.st_mode)     != 0
-		) {
+		if (stat(DATALOGFOLDER, &statbuf) < 0 || S_ISDIR(statbuf.st_mode) == false) {
 			// ERROR!
 			LOGMSG(
 				SEXIEC_ERROR_FILENOTFOUND,
@@ -312,6 +317,10 @@ int main (int argc, char *argv[]) {
 				DATALOGFOLDER
 			);
 		
+		} else if (filesGlue(DATALOGFOLDER, PRJNAME, pckgFilename) == false) {
+			// ERROR!
+			LOGMSG(SEXIEC_ERROR_ILLEGALCONF, "Wrong configured path\n");
+
 		// Checking for the DATALOGFOLDER/PRJNAME file
 		} else if (stat(pckgFilename, &statbuf) < 0) {
 			// WARNING!
@@ -328,10 +337,25 @@ int main (int argc, char *argv[]) {
 				LOGMSG(SEXIEC_ERROR_IOOPFAILED, "I cannot read the \"%s\" file\n", pckgFilename);
 
 			else {
+				memset(&statbuf, 0, sizeof(statbuf));
+
 				// Installed files removing
 				while (fgets(file, sizeof(file), fh) != NULL) {
-					if (unlink(pckgFilename) < 0) {
-						LOGMSG(SEXIEC_WARNING_RMOPFAILED, "I cannot remove the \"%s\" file\n", file);
+					chomp(file);
+
+					if (stat(file, &statbuf) < 0) {
+						if (errno == ENOENT)
+							LOGMSG(SEXIEC_WARNING_RMOPFAILED, "The \"%s\" file does not exist\n", file);
+						else {
+							LOGMSG(SEXIEC_WARNING_RMOPFAILED, "I cannot remove the \"%s\" file\n", file);
+							err = true;
+						}
+					} else if (S_ISDIR(statbuf.st_mode)) {
+						if (verboseFlag) 
+							LOGMSG(1, "\"%s\" skiped\n", file);
+
+					} else if (unlink(pckgFilename) < 0) {
+						LOGMSG(SEXIEC_WARNING_RMOPFAILED, "I cannot remove the \"%s\" file: %s\n", file, strerror(errno));
 						err = true;
 						
 					} else if (verboseFlag) 
@@ -346,7 +370,7 @@ int main (int argc, char *argv[]) {
 				// ERROR!
 				LOGMSG(
 					SEXIEC_ERROR_IOOPFAILED,
-					"Uncompleted removing procedure! you can find the files-list in the \"%s\" file",
+					"Uncompleted removing procedure! you can find the files-list in the \"%s\" file\n",
 					pckgFilename
 				);
 
@@ -479,15 +503,20 @@ int main (int argc, char *argv[]) {
 						LOGMSG(SEXIEC_ERROR_IOOPFAILED, "I cannot write the \"%s\" file\n", pckgFilename);
 
 					else {
+						char wFolder[PATH_MAX];
+						strcpy(wFolder, WFOLDER);
+
 						for (guint x = 0; x < installedFiles->len; x++) {
 							const char *filename = g_ptr_array_index(installedFiles, x);
 							//printf("REP: %s\n", filename);
-
-							if (fprintf(repFH, "/%s\n", filename) < 0) {
-								// ERROR!
-								fclose(repFH);
-								rm_rf(WFOLDER);
-								LOGMSG(SEXIEC_ERROR_IOOPFAILED, "Unable to write '%s'\n", pckgFilename);
+							
+							if (strncmp((wFolder+1), filename, strlen(wFolder)-1) != 0) {
+								if (fprintf(repFH, "/%s\n", filename) < 0) {
+									// ERROR!
+									fclose(repFH);
+									rm_rf(WFOLDER);
+									LOGMSG(SEXIEC_ERROR_IOOPFAILED, "Unable to write '%s'\n", pckgFilename);
+								}
 							}
 						}
 
