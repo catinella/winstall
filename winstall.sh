@@ -258,7 +258,8 @@ if [ "$cmd" = "install" ]; then
 	
 elif [ "$cmd" = "pkg" ]; then
 	TMPFOLDER=$(getFreeName "$TMPFOLDER")
-	[ "$cmd" = "pkg" ] && PREFIX="${TMPFOLDER}/${PREFIX}"
+	originalPrefix="$PREFIX"
+	PREFIX="${TMPFOLDER}/${PREFIX}"
 	[ -d "$TMPFOLDER" ]     || mkdir -p "$TMPFOLDER"     || errDir "$TMPFOLDER"     135
 	[ -d "$PREFIX" ]        || mkdir -p "$PREFIX"        || errDir "$PREFIX"        135
 
@@ -383,7 +384,7 @@ else
 		# Self-extracting package building...
 		WINSTALLCONF="$winstallConfFile"  \
 		PRJNAME="$PRJNAME"                \
-		PREFIX="$PREFIX"                  \
+		PREFIX="$originalPrefix"          \
 		TGZ="${callerPWD}/${PRJNAME}.tgz" \
 			make -C "$myPwd/selfInstPckg"
 
