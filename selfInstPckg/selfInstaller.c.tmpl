@@ -77,6 +77,15 @@
 #error "ERROR! \"PRJNAME\" symbol has not been defined"
 #endif
 
+
+//
+// Prefix installation folder
+//
+#ifndef PREFIX
+#error "ERROR! \"PREFIX\" symbol has not been defined"
+#endif
+
+
 //
 // Pre-install script
 //
@@ -84,12 +93,14 @@
 #define PREINST  ""
 #endif
 
+
 //
 // Post-install script
 //
 #ifndef POSTINST
 #define POSTINST ""
 #endif
+
 
 #define PATH_SPLITTER '/'
 #define WFOLDER       "/winstall"
@@ -527,22 +538,31 @@ int main (int argc, char *argv[]) {
 				// Post install script execution
 				if (*postInstFile != '\0') {
 					struct stat statbuf;
-					postInstFile[0] = '\0';
+					char        pdArg[PATH_MAX];
 
-					if (filesGlue(WFOLDER, PREINST, postInstFile) == false) {
+					postInstFile[0] = '\0';
+					strcpy(pdArg, POSTINST);
+					pathDeleting(pdArg);
+
+					if (filesGlue(WFOLDER, pdArg, postInstFile) == false) {
 						// ERROR!
 						rm_rf(WFOLDER);
 						LOGMSG(SEXIEC_ERROR_ILLEGALCONF, "Configured path or filename is not allowed\n");
 
 					// Check for the file
-					} else if (stat(postInstFile, &statbuf) != 0) {
-						// ERROR!
-						rm_rf(WFOLDER);
-						LOGMSG(
-							SEXIEC_ERROR_MALFORMEDPKG,
-							"Post-install script defined by not included in the archive\n"
-						);
-			
+					} else if (stat(postInstFile, &statbuf) < 0) {
+						if (errno == ENOENT)
+							// ERROR!
+							LOGMSG(
+								SEXIEC_ERROR_MALFORMEDPKG,
+								"Post-install script defined by not included in the archive\n"
+							);
+						else
+							// ERROR!
+							LOGMSG(SEXIEC_ERROR_IOOPFAILED, "%s\n", strerror(errno));
+
+						//rm_rf(WFOLDER);
+
 					// Check for its permissions to be executed
 					} else if ((statbuf.st_mode & S_IXUSR) == 0) {
 						// ERROR!	
@@ -550,10 +570,26 @@ int main (int argc, char *argv[]) {
 						LOGMSG(SEXIEC_ERROR_MALFORMEDPKG, "Wrong post-install script's permissions\n");
 
 					// pre-install script execution
-					} else if (system(postInstFile) != 0) {
-						// ERROR!
-						rm_rf(WFOLDER);
-						LOGMSG(SEXIEC_ERROR_EXTEXEFAILED, "post-install procedure failed\n");
+					} else {
+						LOGMSG(1, "Post-installation script execution..\n");
+						
+						// Script's nvironment building...
+						if (
+							setenv("PRJNAME",       PRJNAME,       1) != 0 ||
+							setenv("PREFIX",        PREFIX,        1) != 0 ||
+							setenv("DATALOGFOLDER", DATALOGFOLDER, 1) != 0
+						)
+							// ERROR
+							LOGMSG(SEXIEC_ERROR_MALFORMEDPKG, "I cannot prepare the script environment\n");
+
+						else if (system(postInstFile) != 0) {
+							// ERROR!
+							rm_rf(WFOLDER);
+							LOGMSG(SEXIEC_ERROR_EXTEXEFAILED, "post-install procedure failed\n");
+						
+						} else
+							// SUCCESS!
+							printf("\nSoftware installation complited with success\n");
 					}
 				}
 			}
