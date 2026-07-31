@@ -274,7 +274,7 @@ sexiErrorCode_t archiveExtractor_extract (const char *file, GPtrArray *extrFiles
 					
 					} else if (extrFilesList != NULL) {
 						// Adding file to the list of the installed ones
-						printf("%s adding...\n", path);
+						printf("+ /%s\n", path);
 						g_ptr_array_add(extrFilesList, g_strdup(path));
 					}
     
@@ -285,6 +285,8 @@ sexiErrorCode_t archiveExtractor_extract (const char *file, GPtrArray *extrFiles
 				}
 			}
 		} // === WHILE LOOP ===
+
+		printf("\n");
 		if (result != ARCHIVE_OK) {
 			DBGLOG(1, "archive_read_next_header() failed: ret-code=%d; errno=%d\n", result, archive_errno(tgzArch));
 		}
