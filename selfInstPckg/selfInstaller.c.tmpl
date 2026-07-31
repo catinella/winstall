@@ -192,6 +192,10 @@ sexiErrorCode_t filesGlue (const char *patha, const char *pathb, char *res) {
 }
 
 void logMsg (unsigned int line, uint8_t severity, const char *fmt, ...) {
+	//
+	// Description:
+	//	It prints the argument defined message amd ends the process if the argument defined "severity" aprgument is and error code
+	//
 	va_list args;
 
 	va_start(args, fmt);
@@ -287,16 +291,18 @@ int main (int argc, char *argv[]) {
 					cmd = W_UNINSTALL;
 				break;
 
-				case 3: 
-					verboseFlag = false;
+				case 2: 
+					verboseFlag = true;
 				break;
 
-				case 4:
+				case 3:
 					cmd = W_HELP;
 				break;
 			}
 		}
 	}
+
+	
 
 	if (cmd == _last)
 		// ERROR!
@@ -348,13 +354,15 @@ int main (int argc, char *argv[]) {
 				LOGMSG(SEXIEC_ERROR_IOOPFAILED, "I cannot read the \"%s\" file\n", pckgFilename);
 
 			else {
+				if (verboseFlag) LOGMSG(1, "Sofware remonving\n");
+
 				memset(&statbuf, 0, sizeof(statbuf));
 
 				// Installed files removing
 				while (fgets(file, sizeof(file), fh) != NULL) {
 					chomp(file);
 
-					if (stat(file, &statbuf) < 0) {
+					if (lstat(file, &statbuf) < 0) {
 						if (errno == ENOENT)
 							LOGMSG(SEXIEC_WARNING_RMOPFAILED, "The \"%s\" file does not exist\n", file);
 						else {
@@ -365,7 +373,7 @@ int main (int argc, char *argv[]) {
 						if (verboseFlag) 
 							LOGMSG(1, "\"%s\" skiped\n", file);
 
-					} else if (unlink(pckgFilename) < 0) {
+					} else if (unlink(file) < 0) {
 						LOGMSG(SEXIEC_WARNING_RMOPFAILED, "I cannot remove the \"%s\" file: %s\n", file, strerror(errno));
 						err = true;
 						
@@ -509,6 +517,10 @@ int main (int argc, char *argv[]) {
 				// Package's info file creation
 				{
 					FILE *repFH = fopen(pckgFilename, "w");
+
+					if (verboseFlag)
+						LOGMSG(1, "Package's ifo file creation\n");
+
 					if (repFH == NULL)
 						// ERROR!
 						LOGMSG(SEXIEC_ERROR_IOOPFAILED, "I cannot write the \"%s\" file\n", pckgFilename);
@@ -597,11 +609,13 @@ int main (int argc, char *argv[]) {
 			// installer's folder removing
 			rm_rf(WFOLDER);
 
+			/*
 			// Coming back to the original poition
 			if (chdir("-") != 0) {
 				// ERROR!
 				LOGMSG(SEXIEC_WARNING_GENERIC, "I cannot change my position inside the Filesystem\n");
 			}
+			*/
 		}
 	}
 
