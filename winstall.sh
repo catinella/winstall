@@ -383,6 +383,7 @@ else
 		# Self-extracting package building...
 		WINSTALLCONF="$winstallConfFile"  \
 		PRJNAME="$PRJNAME"                \
+		PREFIX="$PREFIX"                  \
 		TGZ="${callerPWD}/${PRJNAME}.tgz" \
 			make -C "$myPwd/selfInstPckg"
 
