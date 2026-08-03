@@ -160,7 +160,7 @@ The executable bin package accepts the following arguments: --install, --uninsta
 This project is a free software; you can redistribute it and/or modify it under the terms	of the GNU General Public License
 as published by the Free Software Foundation; either version 3.0 of the License, or (at your option) any later version. 
 
-For further details please read the full [LGP text file](LICENSE).
+For further details please read the full [GPL MD file](LICENSE.md).
 You should find a copy of the GNU General Public License document in the root folder of the project; if not, write to the 
 
 	Free Software Foundation, Inc.,
