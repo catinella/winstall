@@ -150,16 +150,16 @@ The process will perform the following steps:
 The executable bin package accept the following arguments: --install, --uninstall, --help
 
 ## 3.0 TODO
-![TODO](TODO)
+[TODO](TODO.md)
 
 ## 4.0 Changes
-![CHANGES](Changes)
+[CHANGES](Changes.md)
 
 ## 5.0 Licence
-This project is a free software; you can redistribute it and/or modify it under the terms	of the GNU Lesser General Public License
+This project is a free software; you can redistribute it and/or modify it under the terms	of the GNU General Public License
 as published by the Free Software Foundation; either version 3.0 of the License, or (at your option) any later version. 
 
-For further details please read the full [LGPL text file](https://www.gnu.org/licenses/lgpl-3.0.txt).
+For further details please read the full [LGP text file](LICENSE).
 You should find a copy of the GNU General Public License document in the root folder of the project; if not, write to the 
 
 	Free Software Foundation, Inc.,
