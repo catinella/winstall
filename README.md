@@ -6,21 +6,21 @@
 
 |   Files/Dirs  |                     Description                           |
 |---------------|-----------------------------------------------------------|
-| images        | This folder contains picture used by the RADME.md files   |
+| images        | This folder contains picture used by the README.md files  |
 | LICENSE       | GPL 3 license                                             |
 | selfInstPckg  | The C code to build a self-installer software package     |
 | winstall.sh   | The bash-installer script                                 |
 
-## 2.0 Decription
+## 2.0 Description
 
-I have created **winstall** project because I wase sick to write the usual INSTALL.sh for every project. So, I wrote this software
+I have created **winstall** project because I was sick to write the usual INSTALL.sh for every project. So, I wrote this software
 with the following features:
 
 1) Reading configuration from easy-to-maintain local configuration files.
 2) Software installation (file copying) in defined prefix path
 3) Pre-install and post-install scripts management
 4) Software removing
-5) Self installing package creation
+5) Self-installing package creation
 
 This version (1.x.x) of Winstall is composed by two components: the main one is the **winstall.sh** BASH script (that manages all
 the process); the second is the self-installer package generator. In order to use winstall in your source code, I suggest you to
@@ -46,10 +46,10 @@ data originally defined in the configuration file. The configuration file must r
 	TMPFOLDER=<folder>
 
 - **PRJNAME**:       Name of the software. It is used for the filename used to remove the installed files and for the software
-                     packege filename
+                     package filename
 - **PREINST**:       Pre-installation step script. The script to execute before the file installation. If it fails then no files
                      will be installed
-- **POSTINST**:      Post-installion step script. This script is executed after the file copying step. If it fails then
+- **POSTINST**:      Post-installation step script. This script is executed after the file copying step. If it fails then
                      a warning message will be shown on the terminal
 - **PREFIX**:        Installed files path prefix. Every installed file will be stored in a sub-folder of this defined prefix
                      (eg. for PREFIX=/usr/local, /bin/foo.bin --> /usr/local/bin/foo.bin)
@@ -59,7 +59,7 @@ data originally defined in the configuration file. The configuration file must r
 
 ### 2.2 How to write a sub-folder's configuration file
 If you are installing your own software, or creating a software package, then the first step is collecting the files you want
-install on the target system. In order to complete this task uning winstall tool, you have to create (one or more)
+install on the target system. In order to complete this task using the W-install tool, you have to create (one or more)
 configurations file in every folder where the files are stored. Every winstall-configuration file must respect the following
 syntax:
 
@@ -70,13 +70,14 @@ syntax:
 	CHOWN=<user-name>
 	CLEANER=<exec-file|command>
 
-- **BUILDER**:   The executable file or command to execute before to collect the files. Usually, it is used to make
+- **BUILDER**:   The executable file or command to execute before collecting the files. Usually, it is used to make
                  binary files (eg. make all) or to use template files (eg. m4 file.template > file.dat)
 - **FILES**:     The files to be installed. You can also use wildcards (eg. myProject*.exe)
 - **TGTPATH**:   The folder where the defined files will be stored
 - **CHMOD**:     The files permissions
 - **CHOWN**:     The files owner
-- **CLEANER**:   The executable file or command that will clean the folder by dynamically created files (eg. make cleanall)
+- **CLEANER**:   The executable file or command that will clean the dynamically created files (eg. make cleanall) stored in
+                 the folder
 
 Everyone of these config files manages the installation of a particular type of files (eg. binary, manpage, template...).
 For this reason you can have more than one config-file in every folder, it depends by the files groups you want to handle.
@@ -84,7 +85,7 @@ More config files can exist in the same folder because their file-name must resp
 **winstall_**<label>**.conf**
 
 ### 2.3 How to install a software
-After you have created all the winstall's configuration-files, you can preoceed with your custom software installation, using
+After you have created all the winstall's configuration-files, you can proceed with your custom software installation, using
 the following command:
 
 	<path>/winstall.sh --cmd=install [--verbose] [--prefix=<dir>] [--prjName=<string>] [--dataLogFolder=<dir>] 
@@ -93,10 +94,10 @@ The process will perform the following steps:
 
 1) If a pre-install script (**PREINST**) has been defined, then it will be executed. If it fails the installation process
    will end.
-2) The process will scan the current folder (and its sub-folders recoursivly) to find all the winstall_<label>.conf files.
+2) The process will scan the current folder (and its sub-folders recursively) to find all the winstall_<label>.conf files.
    Using the information it will install every file in the right place with the defined attributes. The target folder of
-   every file depends also by the **PREFIX** configured path. Using "--prefix=<dir>" argument you will overwrite if.
-3) If a post-install script (**POSTINST**) has been defined, then it will be executed. If t will fail the installation process
+   every file depends also by the **PREFIX** configured path. Using "--prefix=<dir>" argument you will overwrite it.
+3) If a post-install script (**POSTINST**) has been defined, then it will be executed. If it fails the installation process
    will just print an error message
 4) The process will store a file with the list of all installed files, in the folder defined by **DATALOGFOLDER** config-key.
    The name of this file will be equal to the (**PRJNAME**) defined project-name 
@@ -110,7 +111,7 @@ you need to remove the software using the following syntax:
 The process will perform the following steps:
 
 1) The process will look for the installed files log file (**PRJNAME**) in the proper folder (**DATALOGFOLDER**). If it does
-   not exists then the process will ends with the warning message "The software is not installed".
+   not exist then the process will end with the warning message "The software is not installed".
 2) The log-file will be loaded, and the process will remove all the listed files.
 3) The log-file will be removed
 
@@ -142,21 +143,28 @@ To create your own self-installer  binary package, use the following command:
 
 The process will perform the following steps:
 
-1) In the temporary (**TMPFOLDER**), the process will collect all the files to be install with the proper path (**PREFIX**). Also
-   the pre-install script (**PREINST**) and post-install script (**POSTINST**) will be copyied in the temporary folder.
+1) In the temporary (**TMPFOLDER**), the process will collect all the files to be installed with the proper path (**PREFIX**).
+   Also the pre-install script (**PREINST**) and post-install script (**POSTINST**) will be copied in the temporary folder.
    All these files are used to create a TGZ archive.
 2) The installer C source-code will be compiled
-3) The package will be created gluing the binary code with the TGZ archive to obtain a single self installer package.
+3) The package will be created gluing the binary code with the TGZ archive to obtain a single self-installer package.
 
 The executable bin package accepts the following arguments: --install, --uninstall, --help
 
-## 3.0 TODO
+## 3.0 Tests
+If you need to see a real-life using test, please consider the following projects of mine:
+
+[virtualOscilloscope](https://github.com/catinella/virtualOscilloscope)
+
+[minute](https://github.com/catinella/minute)
+
+## 4.0 TODO
 [TODO](TODO.md)
 
-## 4.0 Changes
+## 5.0 Changes
 [CHANGES](Changes.md)
 
-## 5.0 Licence
+## 6.0 License
 This project is a free software; you can redistribute it and/or modify it under the terms	of the GNU General Public License
 as published by the Free Software Foundation; either version 3.0 of the License, or (at your option) any later version. 
 
