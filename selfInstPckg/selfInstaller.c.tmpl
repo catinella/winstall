@@ -1,0 +1,623 @@
+/*------------------------------------------------------------------------------------------------------------------------------
+//                                             __        __   ___           _        _ _ 
+//                                             \ \      / /  |_ _|_ __  ___| |_ __ _| | |
+//                                              \ \ /\ / /____| || '_ \/ __| __/ _` | | |
+//                                               \ V  V /_____| || | | \__ \ || (_| | | |
+//                                                \_/\_/     |___|_| |_|___/\__\__,_|_|_|
+//                                                                                       
+//	
+// Filename: selfInstaller.c.tmpl
+//
+// Author: Silvano Catinella <catinella@yahoo.com>
+//	
+// Description:
+//	This code is the brain of the self-installing package. Thank this code, the bin-package allows you to install or remove
+//	the target software using the following CLI:
+//		<pkg bin-file> {--install|--uninstall} [--verbose] [--hwelp]
+//
+//	Internal structure of bin package
+//		+-----------------+
+//		|   Binary code   | The packqage's brain
+//		+-----------------+
+//		|                 |
+//		| tar.gz payload  | TGZ archive that contains the files to install
+//		|                 |
+//		+-----------------+
+//
+//
+//
+------------------------------------------------------------------------------------------------------------------------------*/
+#define _XOPEN_SOURCE 700
+
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <string.h>
+#include <stdlib.h>
+#include <limits.h>
+#include <getopt.h>
+#include <sys/types.h>
+#include <errno.h>
+#include <stdarg.h>
+#include <glib.h>
+#include <ftw.h>
+#include <archiveExtractor.h>
+#include <sexiErrorCodes.h>
+#include ##WINSTALLCONF##
+	
+//
+// Installed packages data files folder
+//	(It is used by the --install and --uninstall optios)
+//
+#ifndef DATALOGFOLDER
+#define DATALOGFOLDER "/var/local/winstall"
+#endif
+
+#ifndef TMPFOLDER
+#define TMPFOLDER "/tmp/winstall"
+#endif
+
+//
+// ASCII Art bannes
+//
+#ifndef BANNER_DATA
+#define BANNER_DATA {}
+#endif
+
+#ifndef BANNER_SIZE
+#define BANNER_SIZE 0
+#endif
+
+//
+// Project name.
+//	(It is used for the bin-package file name and for the installed files db)
+//
+#ifndef PRJNAME
+#error "ERROR! \"PRJNAME\" symbol has not been defined"
+#endif
+
+
+//
+// Prefix installation folder
+//
+#ifndef PREFIX
+#error "ERROR! \"PREFIX\" symbol has not been defined"
+#endif
+
+
+//
+// Pre-install script
+//
+#ifndef PREINST
+#define PREINST  ""
+#endif
+
+
+//
+// Post-install script
+//
+#ifndef POSTINST
+#define POSTINST ""
+#endif
+
+
+#define PATH_SPLITTER '/'
+#define WFOLDER       "/winstall"
+
+typedef enum {
+	W_INSTALL,
+	W_UNINSTALL,
+	W_HELP,
+	_last
+} wCmd_t;
+
+#define LOGMSG(...) logMsg(__LINE__, __VA_ARGS__)
+
+//------------------------------------------------------------------------------------------------------------------------------
+//                                                F U N C T I O N S 
+//------------------------------------------------------------------------------------------------------------------------------
+void chomp (char *string_a) {
+	unsigned int x = (strlen(string_a) - 1);
+	while (x > 0 && (string_a[x] == '\n' || string_a[x] == '\r')) {
+		string_a[x] = '\0';
+		x--;
+	}
+}
+
+void printBanner (const char *dataset, unsigned int size) {
+	// TODO: Banner length calculating
+	// TODO: Terminal columns number acknowledge
+	// TODO: Print the baner center justified
+	
+	return;
+}
+
+void pathDeleting (char *filename) {
+	//
+	// Description:
+	//	It accepts a filename as argument and remove all its path (eg. local/share/object.txt --> object.txt)
+	//
+	unsigned int pos = 0;
+	unsigned int origLen = strlen(filename);
+	
+	for (unsigned int x = 0; x < origLen; x++)
+		if (filename[x] == '/') pos = x;
+	
+	if (pos > 0) {
+		unsigned int x;
+		for (x = 0; x < (origLen - (pos + 1)); x++)
+			filename[x] = filename[x + pos + 1];
+		filename[x] = '\0';
+	}
+	
+	return;
+}
+
+void helpProc (const char *myname, int ec) {
+	//
+	// Description:
+	//	It prints a simple help message
+	//
+	printf("Use:  %s {--install|--uninstall|--help}\n", myname);
+	if (ec != 0) exit(ec);
+	return;
+}
+
+sexiErrorCode_t filesGlue (const char *patha, const char *pathb, char *res) {
+	//
+	// Description:
+	//	It allows you to check for the argument defined pats and merge them correctly
+	//		(eg. "/etc" + "passwd" ..> "/etc/passwd")
+	//
+	// Returned value:
+	//
+	size_t          sizeA = strlen(patha);
+	size_t          sizeB = strlen(pathb);
+	sexiErrorCode_t ec    = SEXIEC_SUCCESS;
+
+	if (sizeA == 0 || sizeB == 0 || sizeA + sizeB >= PATH_MAX)
+		ec = SEXIEC_ERROR_ILLEGALARG;
+	
+	else {
+		strcpy(res, patha);
+		if (res[sizeA-1] != PATH_SPLITTER) {
+			res[sizeA]   = '/';
+			res[sizeA+1] = '\0';
+		}
+		strcat(res, pathb);
+	}
+
+	return(ec);
+}
+
+void logMsg (unsigned int line, uint8_t severity, const char *fmt, ...) {
+	//
+	// Description:
+	//	It prints the argument defined message amd ends the process if the argument defined "severity" aprgument is and error code
+	//
+	va_list args;
+
+	va_start(args, fmt);
+	if (SEXIEC_ISSUCCESS(severity)) {
+		fprintf(stdout, "[i (%d)]: ", line);
+		vfprintf(stdout, fmt, args);
+	} else if (SEXIEC_ISWARNING(severity)) {
+		fprintf(stdout, "[WARNING (%d)]: ", line);
+		vfprintf(stdout, fmt, args);
+	} else {
+		fprintf(stderr, "[ERROR! (%d)]: ", line);
+		vfprintf(stderr, fmt, args);
+	}
+	va_end(args);
+	
+	if (SEXIEC_ISERROR(severity))
+		exit((int)severity);
+}
+
+static int removeCB (const char *path, const struct stat *sb, int typeflag, struct FTW *ftwbuf) {
+	//
+	// Description:
+	//	This is the CB used by FTW process to remove the dir, recoursively.
+	//
+	int ec = 0;
+	(void)sb;
+	(void)ftwbuf;
+
+	if (typeflag == FTW_F || typeflag == FTW_SL || typeflag == FTW_SLN)
+		ec = unlink(path);
+		
+	else if (typeflag == FTW_DP)
+		ec = rmdir(path);
+
+	return(ec);
+}
+
+int rm_rf(const char *path) {
+	//
+	// Description:
+	//	It remove recoursively the argument defined path
+	//
+	return(nftw(path, removeCB, 64, FTW_DEPTH | FTW_PHYS));
+}
+
+void closeall () {
+	struct stat statbuf;
+	if (stat(WFOLDER, &statbuf) == 0) {
+		LOGMSG(1, "\"%s\" folder removing...\n");
+		rm_rf(WFOLDER);
+	}
+	archiveExtractor_close();
+}
+
+//------------------------------------------------------------------------------------------------------------------------------
+//                                                     M A I N
+//------------------------------------------------------------------------------------------------------------------------------
+int main (int argc, char *argv[]) {
+	int     option_index = 0;
+	int     ec = 0;
+	wCmd_t  cmd = _last;
+	bool    verboseFlag = false;
+	char    pckgFilename[PATH_MAX];
+
+#if BANNER_SIZE == 0
+	char banner[BANNER_SIZE];
+#else
+	char banner[BANNER_SIZE] = BANNER ;
+#endif
+
+	struct option optionsPool[] = {
+		{"install",   no_argument, NULL, 0},
+		{"uninstall", no_argument, NULL, 0},
+		{"verbose",   no_argument, NULL, 0},
+		{"help",      no_argument, NULL, 0},
+		{0, 0, 0, 0}
+	};
+	
+	while (ec == 0) {
+		ec = getopt_long (argc, argv, "", optionsPool, &option_index);
+
+		if (ec == 0) {
+
+			//
+			// File's arguments collecting
+			//
+			switch (option_index) {
+				case 0: 
+					cmd = W_INSTALL;
+				break;
+
+				case 1: 
+					cmd = W_UNINSTALL;
+				break;
+
+				case 2: 
+					verboseFlag = true;
+				break;
+
+				case 3:
+					cmd = W_HELP;
+				break;
+			}
+		}
+	}
+
+	
+
+	if (cmd == _last)
+		// ERROR!
+		helpProc(argv[0], 127);
+	
+	else if (cmd == W_HELP)
+		helpProc(argv[0], 0);
+
+	// Installed package info-file
+	else if (SEXIEC_ISERROR(filesGlue(DATALOGFOLDER, PRJNAME, pckgFilename)))
+		// ERROR!
+		LOGMSG(SEXIEC_ERROR_ILLEGALCONF, "Wrong configured path (DATALOGFOLDER)\n");
+
+	//
+	// U N I N S T A L L   C O M M A N D
+	//
+	else if (cmd == W_UNINSTALL) {
+		struct stat statbuf;
+
+		*pckgFilename = '\0';
+		printBanner(banner, BANNER_SIZE);
+
+		// Checking for the DATALOGFOLDER folder
+		if (stat(DATALOGFOLDER, &statbuf) < 0 || S_ISDIR(statbuf.st_mode) == false) {
+			// ERROR!
+			LOGMSG(
+				SEXIEC_ERROR_FILENOTFOUND,
+				"The \"%s\" folder does not exist or it is not a valid one\n",
+				DATALOGFOLDER
+			);
+		
+		} else if (filesGlue(DATALOGFOLDER, PRJNAME, pckgFilename) == false) {
+			// ERROR!
+			LOGMSG(SEXIEC_ERROR_ILLEGALCONF, "Wrong configured path\n");
+
+		// Checking for the DATALOGFOLDER/PRJNAME file
+		} else if (stat(pckgFilename, &statbuf) < 0) {
+			// WARNING!
+			LOGMSG(SEXIEC_WARNING_PKGNOTFOUND, "The \"%s\" software is not installed\n", PRJNAME);
+			exit(SEXIEC_WARNING_PKGNOTFOUND);
+			
+		} else {
+			char file[PATH_MAX];
+			FILE *fh = fopen(pckgFilename, "r");
+			bool err = false;
+
+			if (fh == NULL)
+				// ERROR!
+				LOGMSG(SEXIEC_ERROR_IOOPFAILED, "I cannot read the \"%s\" file\n", pckgFilename);
+
+			else {
+				if (verboseFlag) LOGMSG(1, "Sofware remonving\n");
+
+				memset(&statbuf, 0, sizeof(statbuf));
+
+				// Installed files removing
+				while (fgets(file, sizeof(file), fh) != NULL) {
+					chomp(file);
+
+					if (lstat(file, &statbuf) < 0) {
+						if (errno == ENOENT)
+							LOGMSG(SEXIEC_WARNING_RMOPFAILED, "The \"%s\" file does not exist\n", file);
+						else {
+							LOGMSG(SEXIEC_WARNING_RMOPFAILED, "I cannot remove the \"%s\" file\n", file);
+							err = true;
+						}
+					} else if (S_ISDIR(statbuf.st_mode)) {
+						if (verboseFlag) 
+							LOGMSG(1, "\"%s\" skiped\n", file);
+
+					} else if (unlink(file) < 0) {
+						LOGMSG(SEXIEC_WARNING_RMOPFAILED, "I cannot remove the \"%s\" file: %s\n", file, strerror(errno));
+						err = true;
+						
+					} else if (verboseFlag) 
+						LOGMSG(1, "\"%s\" removed\n", file);
+					
+				}
+
+				fclose(fh);
+			}
+			
+			if (err)
+				// ERROR!
+				LOGMSG(
+					SEXIEC_ERROR_IOOPFAILED,
+					"Uncompleted removing procedure! you can find the files-list in the \"%s\" file\n",
+					pckgFilename
+				);
+
+			// Package info file removing
+			else if (unlink(pckgFilename) < 0) 
+				// ERROR!
+				LOGMSG(SEXIEC_ERROR_IOOPFAILED, "I cannot remove the \"%s\" file\n", pckgFilename);
+
+		}
+
+	//
+	// I N S T A L L   C O M M A N D
+	//
+	} else if (cmd == W_INSTALL) {
+		struct stat     statbuf;
+		GPtrArray       *installedFiles = g_ptr_array_new_with_free_func(g_free);
+		
+		//
+		// Checking for required folders
+		//
+		{
+			if (stat(DATALOGFOLDER, &statbuf) < 0) {
+				if (mkdir(DATALOGFOLDER, 755) < 0)
+					// ERROR
+					LOGMSG(SEXIEC_ERROR_IOOPFAILED, "I cannot create the \"%s\" directory\n", DATALOGFOLDER);
+
+				else if (verboseFlag)
+					LOGMSG(1, "The \"%s\" directory has been created\n", DATALOGFOLDER);
+					
+			} else if (S_ISDIR(statbuf.st_mode) == false)
+				// ERROR
+				LOGMSG(131, "\"%s\" file name is already in use and it is not a directory\n");
+		}
+		
+		// Check for installed files list initialization
+		if (installedFiles == NULL) {
+			// ERROR
+			LOGMSG(SEXIEC_ERROR_SYSRESOURCES, "Unable to allocate new memory for the installed-files list\n");
+			
+		// Checking for the DATALOGFOLDER/PRJNAME file
+		} else if (stat(pckgFilename, &statbuf) == 0) {
+			// ERROR!
+			LOGMSG(SEXIEC_WARNING_PKGINSTD, "The \"%s\" software is already installed\n", PRJNAME);
+			exit(0);
+
+		} else if ((ec = archiveExtractor_open()) && SEXIEC_ISERROR(ec)) {
+			// ERROR!
+			LOGMSG(ec, "archiveExtractor module cannot open the archived data section\n");
+			exit(SEXIEC_WARNING_PKGINSTD);
+			
+		// Change to the root folder
+		} else if (chdir("/") != 0) {
+			// ERROR!
+			LOGMSG(SEXIEC_ERROR_SYSCALLFAILED, "I cannot change my position inside the Filesystem\n");
+
+		// /winstall folder extraction
+		} else if ((ec = archiveExtractor_extract(WFOLDER, NULL)) && SEXIEC_ISERROR(ec)) {
+			// ERROR!
+			closeall();
+			LOGMSG(ec, "I cannot extract all archived files\n");
+
+		// Archive closing
+		} else if ((ec = archiveExtractor_close()) && SEXIEC_ISERROR(ec)) {
+			// ERROR!
+			closeall();
+			LOGMSG(ec, "I cannot rewind the archive\n");
+
+		} else {
+			char preInstFile[PATH_MAX];
+			char postInstFile[PATH_MAX];
+
+			strcpy(preInstFile,  PREINST);
+			strcpy(postInstFile, POSTINST);
+
+			// Checking for the pre-install script
+			if (*preInstFile != '\0') {
+				struct stat statbuf;
+				preInstFile[0] = '\0';
+
+				if (filesGlue(WFOLDER, PREINST, preInstFile) == false) {
+					// ERROR!
+					closeall();
+					LOGMSG(SEXIEC_ERROR_ILLEGALCONF, "Configured path or filename is not allowed\n");
+
+				// Check for the file
+				} else if (stat(preInstFile, &statbuf) != 0) {
+					// ERROR!
+					closeall();
+					LOGMSG(SEXIEC_ERROR_MALFORMEDPKG, "Pre-install script defined by not included in the srchive\n");
+			
+				// Check for its permissions to be executed
+				} else if ((statbuf.st_mode & S_IXUSR) == 0) {
+					// ERROR!	
+					closeall();
+					LOGMSG(SEXIEC_ERROR_MALFORMEDPKG, "Wrong pre-install script's permissions\n");
+
+				// pre-install script execution
+				} else if (system(preInstFile) != 0) {
+					// ERROR!
+					closeall();
+					LOGMSG(SEXIEC_ERROR_EXTEXEFAILED, "pre-install procedure failed\n");
+
+				} else
+					// SUCCESS!
+					LOGMSG(1, "The pre-install script has been successfully executed\n");
+				
+			}
+			
+			// Archive opening
+			if ((ec = archiveExtractor_open()) && SEXIEC_ISERROR(ec)) {
+				// ERROR!
+				closeall();
+				LOGMSG(ec, "I cannot rewind the archive\n");
+
+			// Package's files extraction....
+			} else if ((ec = archiveExtractor_extract(NULL, installedFiles)) && SEXIEC_ISERROR(ec)) {
+				// ERROR!
+				closeall();
+				LOGMSG(ec, "I cannot extract all archived files\n");
+
+			} else {
+				// TGZ archiving can be closed, now
+				archiveExtractor_close();
+				
+				// Package's info file creation
+				{
+					FILE *repFH = fopen(pckgFilename, "w");
+
+					if (verboseFlag)
+						LOGMSG(1, "Package's ifo file creation\n");
+
+					if (repFH == NULL)
+						// ERROR!
+						LOGMSG(SEXIEC_ERROR_IOOPFAILED, "I cannot write the \"%s\" file\n", pckgFilename);
+
+					else {
+						char wFolder[PATH_MAX];
+						strcpy(wFolder, WFOLDER);
+
+						for (guint x = 0; x < installedFiles->len; x++) {
+							const char *filename = g_ptr_array_index(installedFiles, x);
+							//printf("REP: %s\n", filename);
+							
+							if (strncmp((wFolder+1), filename, strlen(wFolder)-1) != 0) {
+								if (fprintf(repFH, "/%s\n", filename) < 0) {
+									// ERROR!
+									fclose(repFH);
+									rm_rf(WFOLDER);
+									LOGMSG(SEXIEC_ERROR_IOOPFAILED, "Unable to write '%s'\n", pckgFilename);
+								}
+							}
+						}
+
+						fclose(repFH);
+					}
+				}
+
+				// Post install script execution
+				if (*postInstFile != '\0') {
+					struct stat statbuf;
+					char        pdArg[PATH_MAX];
+
+					postInstFile[0] = '\0';
+					strcpy(pdArg, POSTINST);
+					pathDeleting(pdArg);
+
+					if (filesGlue(WFOLDER, pdArg, postInstFile) == false) {
+						// ERROR!
+						rm_rf(WFOLDER);
+						LOGMSG(SEXIEC_ERROR_ILLEGALCONF, "Configured path or filename is not allowed\n");
+
+					// Check for the file
+					} else if (stat(postInstFile, &statbuf) < 0) {
+						if (errno == ENOENT)
+							// ERROR!
+							LOGMSG(
+								SEXIEC_ERROR_MALFORMEDPKG,
+								"Post-install script defined by not included in the archive\n"
+							);
+						else
+							// ERROR!
+							LOGMSG(SEXIEC_ERROR_IOOPFAILED, "%s\n", strerror(errno));
+
+						//rm_rf(WFOLDER);
+
+					// Check for its permissions to be executed
+					} else if ((statbuf.st_mode & S_IXUSR) == 0) {
+						// ERROR!	
+						rm_rf(WFOLDER);
+						LOGMSG(SEXIEC_ERROR_MALFORMEDPKG, "Wrong post-install script's permissions\n");
+
+					// pre-install script execution
+					} else {
+						LOGMSG(1, "Post-installation script execution..\n");
+						
+						// Script's nvironment building...
+						if (
+							setenv("PRJNAME",       PRJNAME,       1) != 0 ||
+							setenv("PREFIX",        PREFIX,        1) != 0 ||
+							setenv("DATALOGFOLDER", DATALOGFOLDER, 1) != 0
+						)
+							// ERROR
+							LOGMSG(SEXIEC_ERROR_MALFORMEDPKG, "I cannot prepare the script environment\n");
+
+						else if (system(postInstFile) != 0) {
+							// ERROR!
+							rm_rf(WFOLDER);
+							LOGMSG(SEXIEC_ERROR_EXTEXEFAILED, "post-install procedure failed\n");
+						
+						} else
+							// SUCCESS!
+							printf("\nSoftware installation complited with success\n");
+					}
+				}
+			}
+			
+			// installer's folder removing
+			rm_rf(WFOLDER);
+
+			/*
+			// Coming back to the original poition
+			if (chdir("-") != 0) {
+				// ERROR!
+				LOGMSG(SEXIEC_WARNING_GENERIC, "I cannot change my position inside the Filesystem\n");
+			}
+			*/
+		}
+	}
+
+	return(0);
+}

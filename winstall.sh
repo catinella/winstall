@@ -138,6 +138,18 @@ printTitle() {
 	esac
 	return 0
 }
+
+freeName() {
+	local name="$1"
+	local -i c=0
+	while [ -e "$name" ]
+	do
+		name="${1}-${c}"
+		c=$(($c + 1))
+	done
+	echo "$name"
+	return 0
+}
 #-------------------------------------------------------------------------------------------------------------------------------
 #                                                      M A I N 
 #-------------------------------------------------------------------------------------------------------------------------------
@@ -232,7 +244,7 @@ done
 		echo "ERROR! I cannot get the name of the project|package"
 		exit 134
 	}
-	[ $VERBOSE -eq 1 ] && echo "[i] Software name: $PRJNAME"
+	[ $VERBOSE -eq 1 ] && printTitle "Software name: $PRJNAME" 2
 }
 
 
@@ -246,7 +258,8 @@ if [ "$cmd" = "install" ]; then
 	
 elif [ "$cmd" = "pkg" ]; then
 	TMPFOLDER=$(getFreeName "$TMPFOLDER")
-	[ "$cmd" = "pkg" ] && PREFIX="${TMPFOLDER}/${PREFIX}"
+	originalPrefix="$PREFIX"
+	PREFIX="${TMPFOLDER}/${PREFIX}"
 	[ -d "$TMPFOLDER" ]     || mkdir -p "$TMPFOLDER"     || errDir "$TMPFOLDER"     135
 	[ -d "$PREFIX" ]        || mkdir -p "$PREFIX"        || errDir "$PREFIX"        135
 
@@ -259,19 +272,33 @@ elif [ "$cmd" = "uninstall" ]; then
 fi
 
 if [ "$cmd" = "uninstall" ]; then
+	ec=0
 	if [ -e "${DATALOGFOLDER}/$PRJNAME" ]; then
-		rm -fv $(cat "${DATALOGFOLDER}/$PRJNAME") && rm -fv "${DATALOGFOLDER}/$PRJNAME"
+		for file in $(cat "${DATALOGFOLDER}/$PRJNAME")
+		do
+			[ -d "$file" ] || {
+				if [ $VERBOSE -eq 1 ]; then
+					rm -fv $file
+				else
+					rm -f $file
+				fi
+				ec=$?
+			}
+		done
+		[ $ec -eq 0 ] && rm -fv "${DATALOGFOLDER}/$PRJNAME"
 	else
 		errAndExit "The \"$PRJNAME\" looks like not installed" 142
 	fi
-
+	[ $VERBOSE -eq 1 ] && echo ""
+	
 else
 	# Pre-install script
 	[ "$cmd" = "install" -a -n "$PREINST" ] && {
 		[ $VERBOSE -eq 1 ] && printTitle "Pre installation script starting" 2
 		PREFIX="$PREFIX" DATALOGFOLDER="$DATALOGFOLDER" TMPFOLDER="$TMPFOLDER" PRJNAME="$PRJNAME" ./$PREINST
 	}
-
+	
+	[ $VERBOSE -eq 1 ] && printTitle "Collecting data step..." 2
 	for row in $(find . -name "winstall_*.conf")
 	do
 		dir=${row%/winstall_*.conf}
@@ -312,6 +339,7 @@ else
 	
 				;;
 			esac
+			[ $VERBOSE -eq 1 ] && echo ""
 		else
 			echo "ERROR! I cannot enter in the \"$dir\" directory" 
 			break;
@@ -323,6 +351,10 @@ else
 	
 	if [ "$cmd" = "pkg" ]; then
 		[ $VERBOSE -eq 1 ] && printTitle "pkg construction..." 2
+
+		#
+		# Packaging script collecting
+		#
 		[ -n "$POSTINST" -o -n "$PREINST" ] && {
 			if mkdir "$TMPFOLDER/winstall" ; then
 				[ -n "$POSTINST" ] && {
@@ -339,6 +371,11 @@ else
 				errAndExit "I cannot create the \"$TMPFOLDER/winstall\" dir" 164
 			fi
 		}
+		
+		#
+		# Files archiving
+		#
+		[ $VERBOSE -eq 1 ] && printTitle "Data archive building..." 2
 		if cd "$TMPFOLDER" ; then
 			#echo "[i] Temp directory: $PWD"
 			tar cvzf "${callerPWD}/${PRJNAME}.tgz" * || \
@@ -347,7 +384,24 @@ else
 		else
 			errAndExit "I cannot enter in the \"$TMPFOLDER\" directory" 145
 		fi
+		[ $VERBOSE -eq 1 ] && echo ""
 	
+		# Self-extracting pkg configuration file
+		winstallConfFile="$(freeName /tmp/winstallConf.h)"
+		sed -n 's/^[\t ]*\([^=# ]\+\)=\([^=# ]\+\).*$/#define \1 \2/p' $CONFFILE > $winstallConfFile
+		
+		# Self-extracting package building...
+		[ $VERBOSE -eq 1 ] && printTitle "Self-extracting package building..." 2
+
+		WINSTALLCONF="$winstallConfFile"  \
+		PRJNAME="$PRJNAME"                \
+		PREFIX="$originalPrefix"          \
+		TGZ="${callerPWD}/${PRJNAME}.tgz" \
+			make -C "$myPwd/selfInstPckg"
+
+		cd "$callerPWD"
+		mv -f "$myPwd/selfInstPckg/$PRJNAME.bin" .
+
 	elif [ "$cmd" = "install" ]; then
 		err=0
 
