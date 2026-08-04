@@ -74,7 +74,7 @@ endif
 
 .PHONY: clean
 
-all:			$(PKGNAME).bin
+all:			$(PKGNAME)
 
 selfInstaller:	selfInstaller.o $(OBJs);
 			@echo "[ LD ] $@"
