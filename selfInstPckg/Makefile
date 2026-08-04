@@ -65,6 +65,12 @@ CFLAGS = -Wall -g -O0
 $(warning GDB support added)
 endif
 
+ifeq ($(VERSION), "")
+PKGNAME = $(PRJNAME).bin
+else
+PKGNAME = $(PRJNAME)-$(VERSION).bin
+endif
+
 
 .PHONY: clean
 
@@ -87,7 +93,7 @@ selfInstaller:	selfInstaller.o $(OBJs);
 				exit 127;                                             \
 			fi
 
-$(PRJNAME).bin:	selfInstaller $(TGZ)
+$(PKGNAME):		selfInstaller $(TGZ)
 			@echo "[SCRIPT] $@"
 			@if [ -n "$(PRJNAME)" ]; then                     \
 				cat $^ > $@ ;                               \
@@ -102,4 +108,4 @@ clean:
 			@rm -fv selfInstaller.c *.o selfInstaller
 
 cleanall:		clean
-			@rm -fv $(PRJNAME).bin
+			@rm -fv $(PKGNAME)
