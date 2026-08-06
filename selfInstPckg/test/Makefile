@@ -34,9 +34,9 @@ TEXTFILE    ?= /etc/passwd
 TGZFILE     ?= utest_archiveExtractor.tar.gz
 DEBUG       ?= 0
 
-INCLUDE = -I. -I../ -I$(MINUTE_PRFX)/include
+INCLUDE = -I. -I../ -I$(MINUTE_PRFX)/include $(shell pkg-config --cflags glib-2.0)
 CODEGEN = $(MINUTE_PRFX)/share/minute/minute_cCodeGenerator.py
-LIB     = -L$(MINUTE_PRFX)/lib -lMinuteC $(shell pkg-config --libs libarchive) -lc
+LIB     = -L$(MINUTE_PRFX)/lib -lMinuteC $(shell pkg-config --libs libarchive) -lc $(shell pkg-config --libs glib-2.0) 
 SYMBOLS = "-DDEBUG=$(DEBUG)" "-DTEXTFILE=\"$(TEXTFILE)\""
 
 ifeq ($(GDB), 0)
