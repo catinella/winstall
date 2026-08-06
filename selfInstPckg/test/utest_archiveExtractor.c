@@ -59,7 +59,7 @@ TEST (archiveExtractor, fooDataExtraction) {
 	ASSERT_TRUE (SEXIEC_ISERROR(ec) == false);
 
 	// File extraction
-	ec = archiveExtractor_extract("fooData/d2");
+	ec = archiveExtractor_extract("fooData/d2", NULL);
 	ASSERT_TRUE (SEXIEC_ISERROR(ec) == false);
 
 	// checking for the extracted file
