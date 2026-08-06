@@ -461,15 +461,16 @@ int main (int argc, char *argv[]) {
 			char preInstFile[PATH_MAX];
 			char postInstFile[PATH_MAX];
 
-			strcpy(preInstFile,  PREINST);
-			strcpy(postInstFile, POSTINST);
-
 			// Checking for the pre-install script
 			if (*preInstFile != '\0') {
 				struct stat statbuf;
-				preInstFile[0] = '\0';
+				char   pdArg[PATH_MAX];
 
-				if (filesGlue(WFOLDER, PREINST, preInstFile) == false) {
+				preInstFile[0] = '\0';
+				strcpy(pdArg, PREINST);
+				pathDeleting(pdArg);
+
+				if (filesGlue(WFOLDER, pdArg, preInstFile) == false) {
 					// ERROR!
 					closeall();
 					LOGMSG(SEXIEC_ERROR_ILLEGALCONF, "Configured path or filename is not allowed\n");
