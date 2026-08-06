@@ -40,21 +40,22 @@
 #		5) how to clean the folder (used by --cmd=clean option)
 #
 #	How to create a winstall_<label>.conf file:
-#		BUILDER="<commands>"      # Exe-file or commands-sequence to build the files you want to install (eg. make all)
 #		FILES="<files list>"      # Files you want to install (eg. lib*.a file.h)
 #		TGTPATH="<path>"          # Folder where the files will be stored (eg. lib)
 #		CHMOD="<n1><n2><n3>"      # File permissions
 #		CHOWN="<user>"            # File owner
-#		CLEANER="<commands>"      # Exe-file or commands-sequence to remove the produced files (eg. make cleanall)
+#		[BUILDER="<commands>"]    # Exe-file or commands-sequence to build the files you want to install (eg. make all)
+#		[CLEANER="<commands>"]    # Exe-file or commands-sequence to remove the produced files (eg. make cleanall)
 #	
 #	winstall's main-configuration file and optional values:
 #	=======================================================
 #	Some other optional information can be provided wit the winstall.conf file. It MUST be stored in the main folder of your
 #	software project, and must respect the following syntax:
-#		PRJNAME=<string>          # It can be set also with --prjName=<string> file's argument
-#		PREINST=<exec-file>       # The script to run before the files copying step
-#		POSTINST=<exec-file>      # The script to run after the files copying step
-#		VERSION=<n.n.n>           # Project software version
+#		PRJNAME="<string>"               # It can be set also with --prjName=<string> file's argument
+#		PREINST="<exec-file>"            # The script to run before the files copying step
+#		POSTINST="<exec-file>"           # The script to run after the files copying step
+#		VERSION="<n.n.n>"                # Project software version
+#		DEPS_LIST="{auto|<file.so>...}"  # List of deps to check or "auto" ketword to retrive the list automatically
 #	
 #-------------------------------------------------------------------------------------------------------------------------------
 
@@ -167,14 +168,16 @@ callerPWD="$PWD"
 PREFIX="/usr/local"
 DATALOGFOLDER="/var/local/winstall"
 TMPFOLDER="/tmp/winstall"
-VERBOSE=0
 CONFFILE="$callerPWD/winstall.conf"
+VERBOSE=0
+DEPS_LIST_FILE="depsListFile"
 
 # Overwitten by winstall.conf file
 PRJNAME=""
 PREINST=""
 POSTINST=""
 VERSION=""
+DEPS_LIST=""
 
 cmd=""
 err=0
@@ -318,6 +321,9 @@ else
 	}
 	
 	[ $VERBOSE -eq 1 ] && printTitle "Collecting data step..." 2
+
+	depsList=""
+
 	for row in $(find . -name "winstall_*.conf")
 	do
 		dir=${row%/winstall_*.conf}
@@ -355,6 +361,10 @@ else
 							fileList="$fileList $TGTPATH/${file##*/}"
 						}
 					done
+					
+					# Dependences list self population
+					[ $DEPS_LIST = "auto" -a -n "$CHECK4DEPS" ] && \
+						depsList="$depsList $(ldd $CHECK4DEPS |sed -n 's/^[ \t]*\([^ \t]\+\) *=>.*/\1/p' |uniq)"
 	
 				;;
 			esac
@@ -363,10 +373,12 @@ else
 			echo "ERROR! I cannot enter in the \"$dir\" directory" 
 			break;
 		fi
-	
+
 		cd - >/dev/null
 	done
 	
+	# Required dependences list
+	[ $DEPS_LIST = "auto" ] && DEPS_LIST="$depsList"
 	
 	if [ "$cmd" = "pkg" ]; then
 		[ $VERBOSE -eq 1 ] && printTitle "pkg construction..." 2
@@ -385,6 +397,12 @@ else
 					[ $VERBOSE -eq 1 ] && echo "\"$PREINST\" adding to the package"
 					cp "$callerPWD/$PREINST" "$TMPFOLDER/winstall/."
 					chmod 750 "$TMPFOLDER/winstall/${PREINST##*/}"
+					
+					# Dependences checking procedure
+					[ -n "$DEPS_LIST" ] && {
+						echo "${DEPS_LIST}" > $TMPFOLDER/winstall/${DEPS_LIST_FILE}
+						cp -f $myPwd/extTools/checkFordep.sh $TMPFOLDER/winstall/.
+					}
 				}
 			else
 				errAndExit "I cannot create the \"$TMPFOLDER/winstall\" dir" 164
