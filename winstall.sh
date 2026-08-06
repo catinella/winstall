@@ -435,7 +435,7 @@ else
 		PRJNAME="$PRJNAME"                \
 		PREFIX="$originalPrefix"          \
 		TGZ="${callerPWD}/${PRJNAME}.tgz" \
-			make -C "$myPwd/selfInstPckg"
+			make -C "$myPwd/selfInstPckg" || errAndExit "Package building procedure failed" 151
 
 		cd "$callerPWD"
 		if [ -z "$VERSION" ]; then
