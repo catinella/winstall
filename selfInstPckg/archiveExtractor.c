@@ -194,8 +194,16 @@ sexiErrorCode_t archiveExtractor_extract (const char *file, GPtrArray *extrFiles
 	//	This function extract the argument defined file (or directory). If the argument is not secyfied (file == NULL),
 	//	then all archived files will be extracted
 	//
-	sexiErrorCode_t ec    = SEXIEC_SUCCESS;
+	// Returned code:
+	//	SEXIEC_SUCCESS
+	//	SEXIEC_ERROR_FILENOTFOUND
+	//	SEXIEC_ERROR_SYSRESOURCES
+	//	SEXIEC_ERROR_ARCHIVELIB
+	//	SEXIEC_ERROR_IOOPFAILED
+	//
+	sexiErrorCode_t ec = SEXIEC_SUCCESS;
 	struct archive  *disk = archive_write_disk_new();
+	unsigned int    filesCounter = 0;
 
 	if (disk == NULL) {
 		// ERROR
@@ -223,25 +231,31 @@ sexiErrorCode_t archiveExtractor_extract (const char *file, GPtrArray *extrFiles
 		char                 tgtFile[PATH_MAX];
 
 		if (file != NULL) {
-			if (file[0] == '/' || (file[0] == '.' && file[1] == '/')) {
+			// Absolute path
+			if (file[0] == '/') {
+				strcpy(fileDir, (file+1));
+				strcpy(tgtFile, (file+1));
+			
+			// Dot-slash relative path 
+			} else if (file[0] == '.' && file[1] == '/') {
+				strcpy(fileDir, (file+2));
+				strcpy(tgtFile, (file+2));
+			
+			// Relative path
+			} else {
 				strcpy(fileDir, file);
 				strcpy(tgtFile, file);
-			} else {
-				strcpy(fileDir, "./");
-				strcpy(tgtFile, "./");
-				strcat(fileDir, file);
-				strcat(tgtFile, file);
 			}
 			strcat(fileDir, "/");
 		}
 		
 		while ((result = archive_read_next_header(tgzArch, &entry)) == ARCHIVE_OK) {
 			const char *path = archive_entry_pathname(entry);
-			// printf("---> %s : %s\n", path, file);
 
 			if (file == NULL || strncmp(path, fileDir, strlen(fileDir)) == 0 || strcmp(path, tgtFile) == 0) {
 				// file extraction
 				result = archive_write_header(disk, entry);
+				filesCounter++;
 
 				// === SUCCESS ===
 				if (result == ARCHIVE_OK || result == ARCHIVE_WARN) {
@@ -278,21 +292,31 @@ sexiErrorCode_t archiveExtractor_extract (const char *file, GPtrArray *extrFiles
 						g_ptr_array_add(extrFilesList, g_strdup(path));
 					}
     
-				} else {
+				} else if (result != ARCHIVE_EOF) {
 					// ERROR!
 					ec = SEXIEC_ERROR_IOOPFAILED;
-					DBGLOG(1, "archive_write_header() failed");
+					DBGLOG(
+						1, "archive_write_header() failed for '%s': ret-code=%d; errno=%d; error='%s'\n", path, result,
+						archive_errno(disk), archive_error_string(disk)
+					);
 				}
 			}
 		} // === WHILE LOOP ===
 
 		printf("\n");
-		if (result != ARCHIVE_OK) {
+		if (result == ARCHIVE_OK || result == ARCHIVE_EOF) {
+			DBGLOG(3, "%d file matched\n", filesCounter);
+		} else {
 			DBGLOG(1, "archive_read_next_header() failed: ret-code=%d; errno=%d\n", result, archive_errno(tgzArch));
 		}
 	}
 
-	if (SEXIEC_ISERROR(ec)) archiveExtractor_close();
+	if (SEXIEC_ISERROR(ec))
+		archiveExtractor_close();
+
+	else if (filesCounter == 0)
+		// ERROR!
+		ec = SEXIEC_ERROR_FILENOTFOUND;
 	
 	return(ec);
 }
