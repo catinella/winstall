@@ -193,6 +193,10 @@ sexiErrorCode_t archiveExtractor_extract (const char *file, GPtrArray *extrFiles
 	// Description:
 	//	This function extract the argument defined file (or directory). If the argument is not secyfied (file == NULL),
 	//	then all archived files will be extracted
+	//	
+	//	[!] In order to get a more tollerant the file matching, all the dot-slash relative paths are converted in 
+	//	    blank version one. (./file --> file)
+	//	    The convetion is performed in the two direction (function's arg and TGZ extracted file name) both
 	//
 	// Returned code:
 	//	SEXIEC_SUCCESS
@@ -229,6 +233,7 @@ sexiErrorCode_t archiveExtractor_extract (const char *file, GPtrArray *extrFiles
 		int                  result = ARCHIVE_OK;
 		char                 fileDir[PATH_MAX];
 		char                 tgtFile[PATH_MAX];
+		char                 curFile[PATH_MAX];
 
 		if (file != NULL) {
 			// Absolute path
@@ -250,9 +255,15 @@ sexiErrorCode_t archiveExtractor_extract (const char *file, GPtrArray *extrFiles
 		}
 		
 		while ((result = archive_read_next_header(tgzArch, &entry)) == ARCHIVE_OK) {
-			const char *path = archive_entry_pathname(entry);
+			const char *tPpath = archive_entry_pathname(entry);
 
-			if (file == NULL || strncmp(path, fileDir, strlen(fileDir)) == 0 || strcmp(path, tgtFile) == 0) {
+			// Dot-slash relative path 
+			if (tPpath[0] == '.' && tPpath[1] == '/')
+				strcpy(curFile, (tPpath+2));
+			else
+				strcpy(curFile, tPpath);
+
+			if (file == NULL || strncmp(curFile, fileDir, strlen(fileDir)) == 0 || strcmp(curFile, tgtFile) == 0) {
 				// file extraction
 				result = archive_write_header(disk, entry);
 				filesCounter++;
@@ -263,7 +274,7 @@ sexiErrorCode_t archiveExtractor_extract (const char *file, GPtrArray *extrFiles
 					size_t      size = 0;
 					la_int64_t  offset = 0;
 
-					DBGLOG(3, "%s extracting...\n", path);
+					DBGLOG(3, "%s extracting...\n", curFile);
 					
 					// Reading file content
 					while ((result = archive_read_data_block(tgzArch, &data, &size, &offset)) == ARCHIVE_OK) {
@@ -274,7 +285,7 @@ sexiErrorCode_t archiveExtractor_extract (const char *file, GPtrArray *extrFiles
 						if (result != ARCHIVE_OK && result != ARCHIVE_WARN) {
 							// ERROR!
 							ec = SEXIEC_ERROR_ARCHIVELIB;
-							DBGLOG(1, "Unable to extract '%s': %s", path, archive_error_string(disk));
+							DBGLOG(1, "Unable to extract '%s': %s", curFile, archive_error_string(disk));
 							break;
 						}
 					}
@@ -284,19 +295,19 @@ sexiErrorCode_t archiveExtractor_extract (const char *file, GPtrArray *extrFiles
 					if (ec != ARCHIVE_OK && ec != ARCHIVE_WARN) {
 						// ERROR!
 						ec = SEXIEC_ERROR_ARCHIVELIB;
-						DBGLOG(1, "Unable to complete '%s': %s", path, archive_error_string(disk));
+						DBGLOG(1, "Unable to complete '%s': %s", curFile, archive_error_string(disk));
 					
 					} else if (extrFilesList != NULL) {
 						// Adding file to the list of the installed ones
-						printf("+ /%s\n", path);
-						g_ptr_array_add(extrFilesList, g_strdup(path));
+						printf("+ /%s\n", curFile);
+						g_ptr_array_add(extrFilesList, g_strdup(curFile));
 					}
     
 				} else if (result != ARCHIVE_EOF) {
 					// ERROR!
 					ec = SEXIEC_ERROR_IOOPFAILED;
 					DBGLOG(
-						1, "archive_write_header() failed for '%s': ret-code=%d; errno=%d; error='%s'\n", path, result,
+						1, "archive_write_header() failed for '%s': ret-code=%d; errno=%d; error='%s'\n", curFile, result,
 						archive_errno(disk), archive_error_string(disk)
 					);
 				}
