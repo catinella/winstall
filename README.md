@@ -88,7 +88,8 @@ More config files can exist in the same folder because their file-name must resp
 After you have created all the winstall's configuration-files, you can proceed with your custom software installation, using
 the following command:
 
-	<path>/winstall.sh --cmd=install [--verbose] [--prefix=<dir>] [--prjName=<string>] [--dataLogFolder=<dir>] 
+	<path>/winstall.sh --cmd=install \
+		[--verbose] [--prefix=<dir>] [--prjName=<string>] [--dataLogFolder=<dir>] 
 
 The process will perform the following steps:
 
@@ -106,7 +107,8 @@ The process will perform the following steps:
 Using winstall you can install and remove all software you need keeping the target system clean and safe. To achieve this result
 you need to remove the software using the following syntax:
 
-	<path>/winstall.sh --cmd=uninstall [--verbose] [--dataLogFolder=<dir>] [--prjName=<string>]
+	<path>/winstall.sh --cmd=uninstall \
+		[--verbose] [--dataLogFolder=<dir>] [--prjName=<string>]
 
 The process will perform the following steps:
 
@@ -139,7 +141,8 @@ The following diagram shows you how the self-installer package is built internal
 
 To create your own self-installer  binary package, use the following command:
 
-	<path>/winstall.sh --cmd=pkg [--verbose] [--tmpFolder=<dir>] [--dataLogFolder=<dir>] [--prefix=<dir>] [--prjName=<string>]
+	<path>/winstall.sh --cmd=pkg \
+		[--verbose] [--tmpFolder=<dir>] [--dataLogFolder=<dir>] [--prefix=<dir>] [--prjName=<string>]
 
 The process will perform the following steps:
 
@@ -150,6 +153,19 @@ The process will perform the following steps:
 3) The package will be created gluing the binary code with the TGZ archive to obtain a single self-installer package.
 
 The executable bin package accepts the following arguments: --install, --uninstall, --help
+
+#### 2.5.1 Advantages and disavdvantages
+The following table shows you the main advantages and disadvantages of the self-installer binary packages vs package manager system solution.
+
+|                     |                    Self-installing binary                      |                 DEB / RPM                 |
+|---------------------|----------------------------------------------------------------|-------------------------------------------|
+| **Portability**     | ✅ Independent from a specific package manager                 | ❌ Distribution/package-manager specific  |
+| **Distribution**    | ✅ Single executable file                                      | ⚠️  Different packages may be required     |
+| **Dependencies**    | ⚠️  Checked before installation, but not automatically resolved | ✅ Managed by the package manager         |
+| **Uninstallation**  | ✅ Installed files are tracked and can be completely removed   | ✅ Managed by the package manager         |
+| **PM integration**  | ❌ Independent from the system package database                | ✅ Fully integrated                       |
+| **Virus infection** | ⚠️  As an executable file, it can potentially be infected; integrity can be verified before execution (MD5SUM)| ✅ Not directly executable, not executable-file infection |
+| **Repos & updates** | ❌ No native repository/update infrastructure                  | ✅ Native support                         |
 
 ## 3.0 Tests
 If you need to see a real-life using test, please consider the following projects of mine:
