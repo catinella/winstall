@@ -21,11 +21,12 @@
 #	To use the winstall.sh script, you must run it with the root folder of your project, and respect the following syntax:
 #
 #		<path>/winstall.sh --cmd={install|uninstall|build|clean|pkg} \
-#			[--verbose] \
-#			[--tmpFolder=<dir>] \
+#			[--verbose]             \
+#			[--tmpFolder=<dir>]     \
 #			[--dataLogFolder=<dir>] \
-#			[--prefix=<dir>] \
-#			[--prjName=<string>]
+#			[--prefix=<dir>]        \
+#			[--prjName=<string>]    \
+#			[--version=<n.n.n>]
 #
 #	How to set your software to be installed by winstall
 #	====================================================
@@ -39,21 +40,22 @@
 #		5) how to clean the folder (used by --cmd=clean option)
 #
 #	How to create a winstall_<label>.conf file:
-#		BUILDER="<commands>"      # Exe-file or commands-sequence to build the files you want to install (eg. make all)
 #		FILES="<files list>"      # Files you want to install (eg. lib*.a file.h)
 #		TGTPATH="<path>"          # Folder where the files will be stored (eg. lib)
 #		CHMOD="<n1><n2><n3>"      # File permissions
 #		CHOWN="<user>"            # File owner
-#		CLEANER="<commands>"      # Exe-file or commands-sequence to remove the produced files (eg. make cleanall)
+#		[BUILDER="<commands>"]    # Exe-file or commands-sequence to build the files you want to install (eg. make all)
+#		[CLEANER="<commands>"]    # Exe-file or commands-sequence to remove the produced files (eg. make cleanall)
 #	
 #	winstall's main-configuration file and optional values:
 #	=======================================================
 #	Some other optional information can be provided wit the winstall.conf file. It MUST be stored in the main folder of your
 #	software project, and must respect the following syntax:
-#		PRJNAME=<string>          # It can be set also with --prjName=<string> file's argument
-#		PREINST=<exec-file>       # The script to run before the files copying step
-#		POSTINST=<exec-file>      # The script to run after the files copying step
-#	
+#		PRJNAME="<string>"               # It can be set also with --prjName=<string> file's argument
+#		PREINST="<exec-file>"            # The script to run before the files copying step
+#		POSTINST="<exec-file>"           # The script to run after the files copying step
+#		VERSION="<n.n.n>"                # Project software version
+#		DEPS_LIST="{auto|<file.so>...}"  # List of deps to check or "auto" ketword to retrive the list automatically
 #	
 #-------------------------------------------------------------------------------------------------------------------------------
 
@@ -61,18 +63,29 @@ errUsage() {
 	local    file="$1"
 	local -i err=$2
 	echo -e "$file --cmd={install|uninstall|build|clean|pkg} \\"
-	echo -e "\t[--verbose] \\"
-	echo -e "\t[--tmpFolder=<dir>] \\"
+	echo -e "\t[--verbose]             \\"
+	echo -e "\t[--tmpFolder=<dir>]     \\"
 	echo -e "\t[--dataLogFolder=<dir>] \\"
-	echo -e "\t[--prefix=<dir>] \\"
-	echo -e "\t[--prjName=<string>"
+	echo -e "\t[--prefix=<dir>]        \\"
+	echo -e "\t[--prjName=<string>     \\"
+	echo -e "\t[--version=<n.n.n>"
 	[ $err -gt 127 ] && exit $err
 }
 
 doit() {
-	local action="$1"
-	if [ -n "$action" ]; then
-		$action
+	#
+	# Description:
+	#	This function prepares the local environment and executes the argument defined command.
+	#	use the following syntax: doit <var-name> <var-name> ... --- <command> <arguments>
+	#
+	while [ $1 != "---" ]; do
+		export $1
+		shift
+	done
+	shift
+
+	if [ -n "$*" ]; then
+		$*
 	else
 		echo "WARNING! Nothing to build in this folder"
 	fi
@@ -92,6 +105,10 @@ errAndExit() {
 }
 
 getFreeName() {
+	#
+	# Description:
+	#	It looks for an available filename
+	#
 	local file="$1"
 	local -i counter=0
 	while [ -e $file ]; do
@@ -103,6 +120,10 @@ getFreeName() {
 }
 
 printLine() {
+	#
+	# Desription
+	#	It prints an ASCII line on screen
+	#
 	local symbol="$1"
 	local -i length=$2
 	local x=0
@@ -139,17 +160,6 @@ printTitle() {
 	return 0
 }
 
-freeName() {
-	local name="$1"
-	local -i c=0
-	while [ -e "$name" ]
-	do
-		name="${1}-${c}"
-		c=$(($c + 1))
-	done
-	echo "$name"
-	return 0
-}
 #-------------------------------------------------------------------------------------------------------------------------------
 #                                                      M A I N 
 #-------------------------------------------------------------------------------------------------------------------------------
@@ -158,11 +168,17 @@ callerPWD="$PWD"
 PREFIX="/usr/local"
 DATALOGFOLDER="/var/local/winstall"
 TMPFOLDER="/tmp/winstall"
+CONFFILE="$callerPWD/winstall.conf"
+VERBOSE=0
+DEPS_LIST_FILE="depsListFile"
+
+# Overwitten by winstall.conf file
 PRJNAME=""
 PREINST=""
 POSTINST=""
-VERBOSE=0
-CONFFILE="$callerPWD/winstall.conf"
+VERSION=""
+DEPS_LIST=""
+
 cmd=""
 err=0
 
@@ -202,6 +218,9 @@ do
 				;;
 				"prefix")
 					PREFIX="$value"
+				;;
+				"version")
+					VERSION="$value"
 				;;
 				*)
 					echo "ERROR! \"--${key}\" is not a valid argument"
@@ -292,6 +311,9 @@ if [ "$cmd" = "uninstall" ]; then
 	[ $VERBOSE -eq 1 ] && echo ""
 	
 else
+	# Self calculated version number
+	[ "$VERSION" = "auto" ] && VERSION="$(${myPwd}/extTools/gitVersion.sh)"
+
 	# Pre-install script
 	[ "$cmd" = "install" -a -n "$PREINST" ] && {
 		[ $VERBOSE -eq 1 ] && printTitle "Pre installation script starting" 2
@@ -299,6 +321,9 @@ else
 	}
 	
 	[ $VERBOSE -eq 1 ] && printTitle "Collecting data step..." 2
+
+	depsList=""
+
 	for row in $(find . -name "winstall_*.conf")
 	do
 		dir=${row%/winstall_*.conf}
@@ -319,15 +344,15 @@ else
 			
 			case "$cmd" in
 				"clean")
-					doit "$CLEANER"
+					doit --- "$CLEANER"
 				;;
 				"build")
-					doit "$BUILDER"
+					doit VERSION --- "$BUILDER"
 				;;
 				"install"|"pkg")
 					[ -d "$TGTPATH" ] || mkdir -p "$TGTPATH" || errDir "$TGTPATH" 141
 	
-					doit "$BUILDER" || exit 146
+					doit VERSION --- "$BUILDER" || exit 146
 						
 					for file in $FILES ; do
 						cp -v $file $TGTPATH && {
@@ -336,6 +361,10 @@ else
 							fileList="$fileList $TGTPATH/${file##*/}"
 						}
 					done
+					
+					# Dependences list self population
+					[ $DEPS_LIST = "auto" -a -n "$CHECK4DEPS" ] && \
+						depsList="$depsList $(ldd $CHECK4DEPS |sed -n 's/^[ \t]*\([^ \t]\+\) *=>.*/\1/p' |uniq)"
 	
 				;;
 			esac
@@ -344,10 +373,12 @@ else
 			echo "ERROR! I cannot enter in the \"$dir\" directory" 
 			break;
 		fi
-	
+
 		cd - >/dev/null
 	done
 	
+	# Required dependences list
+	[ $DEPS_LIST = "auto" ] && DEPS_LIST="$depsList"
 	
 	if [ "$cmd" = "pkg" ]; then
 		[ $VERBOSE -eq 1 ] && printTitle "pkg construction..." 2
@@ -366,6 +397,12 @@ else
 					[ $VERBOSE -eq 1 ] && echo "\"$PREINST\" adding to the package"
 					cp "$callerPWD/$PREINST" "$TMPFOLDER/winstall/."
 					chmod 750 "$TMPFOLDER/winstall/${PREINST##*/}"
+					
+					# Dependences checking procedure
+					[ -n "$DEPS_LIST" ] && {
+						echo "${DEPS_LIST}" > $TMPFOLDER/winstall/${DEPS_LIST_FILE}
+						cp -f $myPwd/extTools/checkFordep.sh $TMPFOLDER/winstall/.
+					}
 				}
 			else
 				errAndExit "I cannot create the \"$TMPFOLDER/winstall\" dir" 164
@@ -387,20 +424,25 @@ else
 		[ $VERBOSE -eq 1 ] && echo ""
 	
 		# Self-extracting pkg configuration file
-		winstallConfFile="$(freeName /tmp/winstallConf.h)"
+		winstallConfFile="$(getFreeName /tmp/winstallConf.h)"
 		sed -n 's/^[\t ]*\([^=# ]\+\)=\([^=# ]\+\).*$/#define \1 \2/p' $CONFFILE > $winstallConfFile
 		
 		# Self-extracting package building...
 		[ $VERBOSE -eq 1 ] && printTitle "Self-extracting package building..." 2
-
+		
+		VERSION="$VERSION"                \
 		WINSTALLCONF="$winstallConfFile"  \
 		PRJNAME="$PRJNAME"                \
 		PREFIX="$originalPrefix"          \
 		TGZ="${callerPWD}/${PRJNAME}.tgz" \
-			make -C "$myPwd/selfInstPckg"
+			make -C "$myPwd/selfInstPckg" || errAndExit "Package building procedure failed" 151
 
 		cd "$callerPWD"
-		mv -f "$myPwd/selfInstPckg/$PRJNAME.bin" .
+		if [ -z "$VERSION" ]; then
+			mv -f "$myPwd/selfInstPckg/$PRJNAME.bin" .
+		else 
+			mv -f "$myPwd/selfInstPckg/${PRJNAME}-${VERSION}.bin" .
+		fi
 
 	elif [ "$cmd" = "install" ]; then
 		err=0

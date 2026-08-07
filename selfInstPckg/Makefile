@@ -38,7 +38,9 @@ SRCs := $(shell ls *.c)
 OBJs := $(SRCs:.c=.o)
 
 INCLUDE = -I. $(shell pkg-config --cflags glib-2.0)
-LIB     = $(shell pkg-config --libs glib-2.0) $(shell pkg-config --libs libarchive)
+LIB =                                                              \
+	-Wl,-Bstatic  $(shell pkg-config --static --libs libarchive) \
+	-Wl,-Bdynamic $(shell pkg-config          --libs glib-2.0)
 
 GDB ?= 0
 
@@ -65,14 +67,20 @@ CFLAGS = -Wall -g -O0
 $(warning GDB support added)
 endif
 
+ifeq ($(VERSION), "")
+PKGNAME = $(PRJNAME).bin
+else
+PKGNAME = $(PRJNAME)-$(VERSION).bin
+endif
+
 
 .PHONY: clean
 
-all:			$(PRJNAME).bin
+all:			$(PKGNAME)
 
 selfInstaller:	selfInstaller.o $(OBJs);
 			@echo "[ LD ] $@"
-			@gcc -Wall -o $@ $^ $(LIB)
+			@gcc -Wall -o $@ -L/lib/x86_64-linux-gnu $^ $(LIB)
 
 %.o:			%.c
 			@echo "[ CC ] $@"
@@ -87,7 +95,7 @@ selfInstaller:	selfInstaller.o $(OBJs);
 				exit 127;                                             \
 			fi
 
-$(PRJNAME).bin:	selfInstaller $(TGZ)
+$(PKGNAME):		selfInstaller $(TGZ)
 			@echo "[SCRIPT] $@"
 			@if [ -n "$(PRJNAME)" ]; then                     \
 				cat $^ > $@ ;                               \
@@ -102,4 +110,4 @@ clean:
 			@rm -fv selfInstaller.c *.o selfInstaller
 
 cleanall:		clean
-			@rm -fv $(PRJNAME).bin
+			@rm -fv $(PKGNAME)
