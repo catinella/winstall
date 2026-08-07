@@ -200,7 +200,7 @@ void logMsg (unsigned int line, uint8_t severity, const char *fmt, ...) {
 
 	va_start(args, fmt);
 	if (SEXIEC_ISSUCCESS(severity)) {
-		fprintf(stdout, "[i (%d)]: ", line);
+		fprintf(stdout, "[INFO (%d)]: ", line);
 		vfprintf(stdout, fmt, args);
 	} else if (SEXIEC_ISWARNING(severity)) {
 		fprintf(stdout, "[WARNING (%d)]: ", line);
@@ -244,7 +244,7 @@ int rm_rf(const char *path) {
 void closeall () {
 	struct stat statbuf;
 	if (stat(WFOLDER, &statbuf) == 0) {
-		LOGMSG(1, "\"%s\" folder removing...\n");
+		LOGMSG(1, "\"%s\" folder removing...\n", WFOLDER);
 		rm_rf(WFOLDER);
 	}
 	archiveExtractor_close();
@@ -449,7 +449,7 @@ int main (int argc, char *argv[]) {
 		} else if ((ec = archiveExtractor_extract(WFOLDER, NULL)) && SEXIEC_ISERROR(ec)) {
 			// ERROR!
 			closeall();
-			LOGMSG(ec, "I cannot extract all archived files\n");
+			LOGMSG(ec, "I cannot extract the \"%s\" folder\n", WFOLDER);
 
 		// Archive closing
 		} else if ((ec = archiveExtractor_close()) && SEXIEC_ISERROR(ec)) {
@@ -461,11 +461,15 @@ int main (int argc, char *argv[]) {
 			char preInstFile[PATH_MAX];
 			char postInstFile[PATH_MAX];
 
+			strcpy(preInstFile,  PREINST);
+			strcpy(postInstFile, POSTINST);
+
 			// Checking for the pre-install script
 			if (*preInstFile != '\0') {
 				struct stat statbuf;
 				char   pdArg[PATH_MAX];
-
+				
+				// Relative path removing
 				preInstFile[0] = '\0';
 				strcpy(pdArg, PREINST);
 				pathDeleting(pdArg);
