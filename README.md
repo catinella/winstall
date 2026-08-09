@@ -44,6 +44,8 @@ data originally defined in the configuration file. The configuration file must r
 	PREFIX=<folder>
 	DATALOGFOLDER=<folder>
 	TMPFOLDER=<folder>
+	VERSION=<n.n.n>
+	DEPS_LIST={auto|<file.so>...}
 
 - **PRJNAME**:       Name of the software. It is used for the filename used to remove the installed files and for the software
                      package filename
@@ -57,27 +59,37 @@ data originally defined in the configuration file. The configuration file must r
                      winstall
 - **TMPFOLDER**:     A temporary folder used by the winstall process to store the collected files
 
+- **VERSION**:       Project software version
+
+- **DEPS_LIST**:     List of the dependence so-files to check or "auto" keyword to retrive the list automatically
+
 ### 2.2 How to write a sub-folder's configuration file
 If you are installing your own software, or creating a software package, then the first step is collecting the files you want
 install on the target system. In order to complete this task using the W-install tool, you have to create (one or more)
 configurations file in every folder where the files are stored. Every winstall-configuration file must respect the following
 syntax:
 
-	BUILDER=<exec-file|command>
 	FILES=<files>
 	TGTPATH=<folder>
 	CHMOD=<n><n><n>
 	CHOWN=<user-name>
-	CLEANER=<exec-file|command>
+	[BUILDER=<exec-file|command>]
+	[CLEANER=<exec-file|command>]
+	[CHECK4DEPS=<binary filename>...]
 
-- **BUILDER**:   The executable file or command to execute before collecting the files. Usually, it is used to make
-                 binary files (eg. make all) or to use template files (eg. m4 file.template > file.dat)
 - **FILES**:     The files to be installed. You can also use wildcards (eg. myProject*.exe)
 - **TGTPATH**:   The folder where the defined files will be stored
 - **CHMOD**:     The files permissions
 - **CHOWN**:     The files owner
-- **CLEANER**:   The executable file or command that will clean the dynamically created files (eg. make cleanall) stored in
-                 the folder
+
+Optional fields:
+
+- **BUILDER**:    The executable file or command to execute before collecting the files. Usually, it is used to make
+                  binary files (eg. make all) or to use template files (eg. m4 file.template > file.dat)
+- **CLEANER**:    The executable file or command that will clean the dynamically created files (eg. make cleanall) stored in
+                  the folder
+- **CHECK4DEPS**: Every binary file belonging to this list will be analyzed to find all used the shared-object file it uses.
+                  Before the self-installing binary package installation phase, all those dependencies will be verified
 
 Everyone of these config files manages the installation of a particular type of files (eg. binary, manpage, template...).
 For this reason you can have more than one config-file in every folder, it depends by the files groups you want to handle.
