@@ -21,12 +21,12 @@
 #	To use the winstall.sh script, you must run it with the root folder of your project, and respect the following syntax:
 #
 #		<path>/winstall.sh --cmd={install|uninstall|build|clean|pkg} \
-#			[--verbose]             \
-#			[--tmpFolder=<dir>]     \
-#			[--dataLogFolder=<dir>] \
-#			[--prefix=<dir>]        \
-#			[--prjName=<string>]    \
-#			[--version=<n.n.n>]
+#			[--verbose]               \
+#			[--tmpFolder=<dir>]       \
+#			[--dataLogFolder=<dir>]   \
+#			[--prefix=<dir>]          \
+#			[--prjName=<string>]      \
+#			[--version={auto|<n.n.n>}]
 #
 #	How to set your software to be installed by winstall
 #	====================================================
@@ -63,12 +63,12 @@ errUsage() {
 	local    file="$1"
 	local -i err=$2
 	echo -e "$file --cmd={install|uninstall|build|clean|pkg} \\"
-	echo -e "\t[--verbose]             \\"
-	echo -e "\t[--tmpFolder=<dir>]     \\"
-	echo -e "\t[--dataLogFolder=<dir>] \\"
-	echo -e "\t[--prefix=<dir>]        \\"
-	echo -e "\t[--prjName=<string>     \\"
-	echo -e "\t[--version=<n.n.n>"
+	echo -e "\t[--verbose]               \\"
+	echo -e "\t[--tmpFolder=<dir>]       \\"
+	echo -e "\t[--dataLogFolder=<dir>]   \\"
+	echo -e "\t[--prefix=<dir>]          \\"
+	echo -e "\t[--prjName=<string>       \\"
+	echo -e "\t[--version={auto|<n.n.n>}   "
 	[ $err -gt 127 ] && exit $err
 }
 
