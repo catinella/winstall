@@ -27,11 +27,12 @@ the process); the second is the self-installer package generator. In order to us
 store it (as submodule for example) inside your project, and execute winstall.sh script with the following syntax:
 
 	<path>/winstall.sh --cmd={install|uninstall|build|clean|pkg} \
-		[--verbose] \
-		[--tmpFolder=<dir>] \
-		[--dataLogFolder=<dir>] \
-		[--prefix=<dir>] \
-		[--prjName=<string>]
+		[--verbose]                    \
+		[--tmpFolder=<dir>]            \
+		[--dataLogFolder=<dir>]        \
+		[--prefix=<dir>]               \
+		[--prjName=<string>]           \
+		[--version={auto|<n>.<n>.<n>}]
 
 ### 2.1 How to write the main configuration file
 As you can see in the previous section, you can drive the file installation (or the package creation) using the bash-script
@@ -44,7 +45,7 @@ data originally defined in the configuration file. The configuration file must r
 	PREFIX=<folder>
 	DATALOGFOLDER=<folder>
 	TMPFOLDER=<folder>
-	VERSION=<n.n.n>
+	VERSION={auto|<n>.<n>.<n>}
 	DEPS_LIST={auto|<file.so>...}
 
 - **PRJNAME**:       Name of the software. It is used for the filename used to remove the installed files and for the software
@@ -58,9 +59,8 @@ data originally defined in the configuration file. The configuration file must r
 - **DATALOGFOLDER**: This is the folder where the process will store all information to remove every software installed by
                      winstall
 - **TMPFOLDER**:     A temporary folder used by the winstall process to store the collected files
-
-- **VERSION**:       Project software version
-
+- **VERSION**:       Project software version. If you set it to "auto" then the version will be calculated using GIT and the tags
+                     you have created
 - **DEPS_LIST**:     List of the dependence so-files to check or "auto" keyword to retrive the list automatically
 
 ### 2.2 How to write a sub-folder's configuration file
@@ -76,6 +76,8 @@ syntax:
 	[BUILDER=<exec-file|command>]
 	[CLEANER=<exec-file|command>]
 	[CHECK4DEPS=<binary filename>...]
+
+Required fields:
 
 - **FILES**:     The files to be installed. You can also use wildcards (eg. myProject*.exe)
 - **TGTPATH**:   The folder where the defined files will be stored
@@ -153,8 +155,13 @@ The following diagram shows you how the self-installer package is built internal
 
 To create your own self-installer  binary package, use the following command:
 
-	<path>/winstall.sh --cmd=pkg \
-		[--verbose] [--tmpFolder=<dir>] [--dataLogFolder=<dir>] [--prefix=<dir>] [--prjName=<string>]
+	<path>/winstall.sh --cmd=pkg         \
+		[--verbose]                    \
+		[--tmpFolder=<dir>]            \
+		[--dataLogFolder=<dir>]        \
+		[--prefix=<dir>]               \
+		[--prjName=<string>]           \
+		[--version={auto|<n>.<n>.<n>}]
 
 The process will perform the following steps:
 
