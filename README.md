@@ -175,7 +175,7 @@ The following table shows you the main advantages and disadvantages of the self-
 | **Distribution**    | ✅ Single executable file                                      | ⚠️  Different packages may be required     |
 | **Dependencies**    | ⚠️  Checked before installation, but not automatically resolved | ✅ Managed by the package manager         |
 | **Uninstallation**  | ✅ Installed files are tracked and can be completely removed   | ✅ Managed by the package manager         |
-| **PM integration**  | ❌ Independent from the system package database                | ✅ Fully integrated                       |
+| **PM integration**  | ✅ Independent of the system package manager                   | ❌ Requires the appropriate package-management infrastructure |
 | **Virus infection** | ⚠️  As an executable file, it can potentially be infected; integrity can be verified before execution (MD5SUM)| ✅ Not directly executable, not executable-file infection |
 | **Repos & updates** | ❌ No native repository/update infrastructure                  | ✅ Native support                         |
 
