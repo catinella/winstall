@@ -36,8 +36,8 @@ store it (as submodule for example) inside your project, and execute winstall.sh
 
 ### 2.1 How to write the main configuration file
 As you can see in the previous section, you can drive the file installation (or the package creation) using the bash-script
-arguments. But you can also use the winstall's configuration file. Anyway, remember that the command-line arguments overwrite the
-data originally defined in the configuration file. The configuration file must respect the following syntax:
+arguments. But you can also use the winstall's configuration file (**winstall.conf**). Anyway, remember that the command-line
+arguments overwrite the data originally defined in the configuration file. The configuration file must respect the following syntax:
 
 	PRJNAME=<string>
 	PREINST=<exec-file>
