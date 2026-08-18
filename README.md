@@ -96,7 +96,7 @@ Optional fields:
 Everyone of these config files manages the installation of a particular type of files (eg. binary, manpage, template...).
 For this reason you can have more than one config-file in every folder, it depends by the files groups you want to handle.
 More config files can exist in the same folder because their file-name must respect the following syntax:
-**winstall_**<label>**.conf**
+**winstall_\<label\>.conf** (eg. winstall_bin.conf for binary files, winstall_doc.conf for manpages, ...)
 
 ### 2.3 How to install a software
 After you have created all the winstall's configuration-files, you can proceed with your custom software installation, using
