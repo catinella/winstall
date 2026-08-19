@@ -356,14 +356,14 @@ else
 						
 					for file in $FILES ; do
 						cp -v $file $TGTPATH && {
-							[ -n "$CHMOD" ] && chmod $CHMOD $TGTPATH/${file##*/}
 							[ -n "$CHOWN" ] && chown $CHOWN $TGTPATH/${file##*/}
+							[ -n "$CHMOD" ] && chmod $CHMOD $TGTPATH/${file##*/}
 							fileList="$fileList $TGTPATH/${file##*/}"
 						}
 					done
 					
 					# Dependences list self population
-					[ $DEPS_LIST = "auto" -a -n "$CHECK4DEPS" ] && \
+					[ "$DEPS_LIST" = "auto" -a -n "$CHECK4DEPS" ] && \
 						depsList="$depsList $(ldd $CHECK4DEPS |sed -n 's/^[ \t]*\([^ \t]\+\) *=>.*/\1/p' |uniq)"
 	
 				;;
@@ -378,7 +378,7 @@ else
 	done
 	
 	# Required dependences list
-	[ $DEPS_LIST = "auto" ] && DEPS_LIST="$depsList"
+	[ "$DEPS_LIST" = "auto" ] && DEPS_LIST="$depsList"
 	
 	if [ "$cmd" = "pkg" ]; then
 		[ $VERBOSE -eq 1 ] && printTitle "pkg construction..." 2
