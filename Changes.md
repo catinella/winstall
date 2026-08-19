@@ -3,6 +3,7 @@
 ### 1.0.2 - August 2026
 - Fix: installation exit for empty DEPS_LIST
 - Fix: chown/chmod wrong order does not allowed set-uid
+- Fix: extTools/gitVersion.sh returned unknown when the last tag is the last commit too
 
 ### 1.0.1 - August 2026
 - New feature: self-calculating project version (using GIT)
