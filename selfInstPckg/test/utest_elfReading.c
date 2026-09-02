@@ -10,6 +10,8 @@
 //
 // Author: Silvano Catinella <catinella@yahoo.com>
 //	
+// SPDX-License-Identifier: LGPL-3.0-or-later
+//	
 // Description:
 //	It is a unit-test for the elfReading module.
 //

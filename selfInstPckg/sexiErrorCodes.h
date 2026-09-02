@@ -10,6 +10,8 @@
 //
 // Author: Silvano Catinella <catinella@yahoo.com>
 //	
+// SPDX-License-Identifier: LGPL-3.0-or-later
+//	
 // Description:
 //	Self EXtractor & Installer ErrorCodes
 //	This file should just reports all success/warning/error codes used inside the project6

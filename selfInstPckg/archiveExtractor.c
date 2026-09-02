@@ -10,6 +10,8 @@
 //
 // Author: Silvano Catinella <catinella@yahoo.com>
 //	
+// SPDX-License-Identifier: LGPL-3.0-or-later
+//
 // Description:
 //	This module manages the TGZ archived data stored in the executable file tail space.
 //

@@ -10,6 +10,8 @@
 //
 // Author: Silvano Catinella <catinella@yahoo.com>
 //	
+// SPDX-License-Identifier: LGPL-3.0-or-later
+//	
 // Description:
 //	This library provides functionality to read the currently-running executable file ELF header.
 //
