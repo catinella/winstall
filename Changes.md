@@ -1,5 +1,8 @@
 ## Changes
 
+### 1.0.3 - September
+- Fix: symbol definitions missing in the building step
+
 ### 1.0.2 - August 2026
 - Fix: installation exit for empty DEPS_LIST
 - Fix: chown/chmod wrong order does not allowed set-uid
