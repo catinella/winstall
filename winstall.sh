@@ -85,7 +85,7 @@ doit() {
 	shift
 
 	if [ -n "$*" ]; then
-		$*
+		VERSION="$VERSION" PRJNAME="$PRJNAME" PREFIX="$PREFIX" $*
 	else
 		echo "WARNING! Nothing to build in this folder"
 	fi
