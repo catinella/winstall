@@ -332,6 +332,9 @@ else
 		if cd $dir ; then
 			[ $VERBOSE -eq 1 ] && printTitle "Entering i the \"$dir\" directory" 2
 	
+			# Old data cleaning...
+			unset FILES TGTPATH CHMOD CHOWN BUILDER CLEANER CHECK4DEPS
+
 			# Data loading...
 			source $wfile
 	
