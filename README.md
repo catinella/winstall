@@ -4,12 +4,15 @@
 
 ## 1.0 Files
 
-|   Files/Dirs  |                     Description                           |
-|---------------|-----------------------------------------------------------|
-| images        | This folder contains picture used by the README.md files  |
-| LICENSE       | GPL 3 license                                             |
-| selfInstPckg  | The C code to build a self-installer software package     |
-| winstall.sh   | The bash-installer script                                 |
+|     Files/Dirs   |                     Description                           |
+|------------------|-----------------------------------------------------------|
+| images           | This folder contains picture used by the README.md files  |
+| selfInstPckg     | The C code to build a self-installer software package     |
+| winstall.sh      | The bash-installer script                                 |
+| extTools         | Tools used by winstall.sh                                 |
+| LICENSE-LGPL3.md | LGPL 3 license document                                   |
+| Changes.md       | Main changes of every released version                    |
+| TODO.md          | Features to implement in the next versions                |
 
 ## 2.0 Description
 
