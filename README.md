@@ -25,11 +25,16 @@ with the following features:
 4) Software removing
 5) Self-installing package creation
 
-This version (1.x.x) of Winstall is composed by two components: the main one is the **winstall.sh** BASH script (that manages all
-the process); the second is the self-installer package generator. In order to use winstall in your source code, I suggest you to
+This version (2.x.x) of Winstall has been developed to provide a multi-platform installer software. It means you can use it to install
+a software application on different operating systems (Solaris, Linux, Winwows, ...) and you can also create a multi-platform package
+that is able to install the application on different harware (IA64, ARM, x86...). On the target host, the lonely requirement is to
+have Python3 VM already installed and properly configured.
+
+Like the BASH version, this one is composed by two components: the main one is the **winstall.py** Python executable file (that manages
+all the process); the second is the self-installer package generator. In order to use winstall in your source code, I suggest you to
 store it (as submodule for example) inside your project, and execute winstall.sh script with the following syntax:
 
-	<path>/winstall.sh --cmd={install|uninstall|build|clean|pkg} \
+	<path>/winstall.py --cmd={install|uninstall|build|clean|pkg} \
 		[--verbose]                    \
 		[--tmpFolder=<dir>]            \
 		[--dataLogFolder=<dir>]        \
@@ -38,18 +43,18 @@ store it (as submodule for example) inside your project, and execute winstall.sh
 		[--version={auto|<n>.<n>.<n>}]
 
 ### 2.1 How to write the main configuration file
-As you can see in the previous section, you can drive the file installation (or the package creation) using the bash-script
-arguments. But you can also use the winstall's configuration file (**winstall.conf**). Anyway, remember that the command-line
+As you can see in the previous section, you can drive the file installation (or the package creation) using the python application's
+arguments. But you can also use the winstall's configuration file (**winstall_conf.yaml**). Anyway, remember that the command-line
 arguments overwrite the data originally defined in the configuration file. The configuration file must respect the following syntax:
 
-	PRJNAME=<string>
-	PREINST=<exec-file>
-	POSTINST=<exec-file>
-	PREFIX=<folder>
-	DATALOGFOLDER=<folder>
-	TMPFOLDER=<folder>
-	VERSION={auto|<n>.<n>.<n>}
-	DEPS_LIST={auto|<file.so>...}
+	PRJNAME:       <string>
+	PREINST:       <exec-file>
+	POSTINST:      <exec-file>
+	PREFIX:        <folder>
+	DATALOGFOLDER: <folder>
+	TMPFOLDER:     <folder>
+	VERSION:       {auto|<n>.<n>.<n>}
+	DEPS_LIST:     {auto|<file.so>...}
 
 - **PRJNAME**:       Name of the software. It is used for the filename used to remove the installed files and for the software
                      package filename
@@ -68,38 +73,59 @@ arguments overwrite the data originally defined in the configuration file. The c
 
 ### 2.2 How to write a sub-folder's configuration file
 If you are installing your own software, or creating a software package, then the first step is collecting the files you want
-install on the target system. In order to complete this task using the W-install tool, you have to create (one or more)
-configurations file in every folder where the files are stored. Every winstall-configuration file must respect the following
-syntax:
+install on the target system. In order to complete this task using the W-install tool, you have to create one configuration file
+in every folder where the files are stored. Every winstall-configuration file has one or many YAML items like the following one:
 
-	FILES=<files>
-	TGTPATH=<folder>
-	CHMOD=<n><n><n>
-	CHOWN=<user-name>
-	[BUILDER=<exec-file|command>]
-	[CLEANER=<exec-file|command>]
-	[CHECK4DEPS=<binary filename>...]
+	- <label>:
+		source:    <file-to-install>
+		target:    <target-path>
+		[custCopy: <module-name>]
+		beforeCopy:
+			- <module-name>: <arguments>
+			...
+		afterCopy:
+			- <module-name>: <arguments>
+			...
 
-Required fields:
+YAML item properties:
 
-- **FILES**:     The files to be installed. You can also use wildcards (eg. myProject*.exe)
-- **TGTPATH**:   The folder where the defined files will be stored
-- **CHMOD**:     The files permissions
-- **CHOWN**:     The files owner
+- **source**:     The files to be installed. You can also use wildcards (eg. myProject\*.exe)
+- **target**:     The folder where the defined files will be stored. [!] To separates the folders use always the "/" char.
+- **custCopy**:   The name of your coustmized module you want to use to manage the file(s) copying. It is optionally
+- **beforeCopy**: The list of checks for the target system. If one fails the file will be not installed
+- **afterCopy**:  The list of the actions to perform on the installed file
 
-Optional fields:
+Available "**beforeCopy**" modules as default:
 
-- **BUILDER**:    The executable file or command to execute before collecting the files. Usually, it is used to make
-                  binary files (eg. make all) or to use template files (eg. m4 file.template > file.dat)
-- **CLEANER**:    The executable file or command that will clean the dynamically created files (eg. make cleanall) stored in
-                  the folder
-- **CHECK4DEPS**: Every binary file belonging to this list will be analyzed to find all used the shared-object file it uses.
-                  Before the self-installing binary package installation phase, all those dependencies will be verified
+	fileExixts: <filename>
+		- <path1>
+		[- <path2> ]
 
-Everyone of these config files manages the installation of a particular type of files (eg. binary, manpage, template...).
-For this reason you can have more than one config-file in every folder, it depends by the files groups you want to handle.
-More config files can exist in the same folder because their file-name must respect the following syntax:
-**winstall_\<label\>.conf** (eg. winstall_bin.conf for binary files, winstall_doc.conf for manpages, ...)
+It returns true only if the file exists in at least one of the defined paths
+
+	checkForOS: {linux|solaris|posix|windows...}
+
+It returns true only if the target operating system is the defined one
+
+	libExists: <library-name>
+
+It returns true only if the library is already installed on the target system
+
+Available "**afterCopy**" modules as default:
+
+	setPermissions: <n><n><n><n>
+
+It sets the installed file(s) permissions. The argument is defined using POSIX syntax
+
+	setOwner: <user>
+
+It configures the installed file(s)'s owner
+
+	registerUpdating:
+		address: <int>
+		valur:   <data>
+
+This action will be performed only if the target OS is a MS Winows one. The module udate/add a register keyword
 
 ### 2.3 How to install a software
 After you have created all the winstall's configuration-files, you can proceed with your custom software installation, using
@@ -112,7 +138,7 @@ The process will perform the following steps:
 
 1) If a pre-install script (**PREINST**) has been defined, then it will be executed. If it fails the installation process
    will end.
-2) The process will scan the current folder (and its sub-folders recursively) to find all the winstall_<label>.conf files.
+2) The process will scan the current folder (and its sub-folders recursively) to find all the winstall_conf.yaml files.
    Using the information it will install every file in the right place with the defined attributes. The target folder of
    every file depends also by the **PREFIX** configured path. Using "--prefix=<dir>" argument you will overwrite it.
 3) If a post-install script (**POSTINST**) has been defined, then it will be executed. If it fails the installation process
@@ -135,59 +161,6 @@ The process will perform the following steps:
 3) The log-file will be removed
 
 ### 2.5 What is and how to create a self-installer package
-This software tool provides you the possibility to get a self-installing binary package, too. Using this package you will be
-able to install and remove the software in the target system without the request to have a package manager installed in that
-system. It can be very useful in environments where you don't want to have a package manager already installed in your target
-(like in some embedded software devices) or when you need to install the software in many different POSIX OSs or Linux 
-distributions...
-
-The following diagram shows you how the self-installer package is built internally:
-
-	+----------------+
-	| The installer  |
-	|  binary code   |
-	+----------------+
-	|////////////////|
-	|////////////////|
-	|                |
-	| TAR-GZ archive |
-	|                |
-	|////////////////|
-	|////////////////|
-	+----------------+
-
-To create your own self-installer  binary package, use the following command:
-
-	<path>/winstall.sh --cmd=pkg         \
-		[--verbose]                    \
-		[--tmpFolder=<dir>]            \
-		[--dataLogFolder=<dir>]        \
-		[--prefix=<dir>]               \
-		[--prjName=<string>]           \
-		[--version={auto|<n>.<n>.<n>}]
-
-The process will perform the following steps:
-
-1) In the temporary (**TMPFOLDER**), the process will collect all the files to be installed with the proper path (**PREFIX**).
-   Also the pre-install script (**PREINST**) and post-install script (**POSTINST**) will be copied in the temporary folder.
-   All these files are used to create a TGZ archive.
-2) The installer C source-code will be compiled
-3) The package will be created gluing the binary code with the TGZ archive to obtain a single self-installer package.
-
-The executable bin package accepts the following arguments: --install, --uninstall, --help
-
-#### 2.5.1 Advantages and disavdvantages
-The following table shows you the main advantages and disadvantages of the self-installer binary packages vs package manager system solution.
-
-|                     |                    Self-installing binary                      |                 DEB / RPM                 |
-|---------------------|----------------------------------------------------------------|-------------------------------------------|
-| **Portability**     | ✅ Independent from a specific package manager                 | ❌ Distribution/package-manager specific  |
-| **Distribution**    | ✅ Single executable file                                      | ⚠️  Different packages may be required     |
-| **Dependencies**    | ⚠️  Checked before installation, but not automatically resolved | ✅ Managed by the package manager         |
-| **Uninstallation**  | ✅ Installed files are tracked and can be completely removed   | ✅ Managed by the package manager         |
-| **PM integration**  | ✅ Independent of the system package manager                   | ❌ Requires the appropriate package-management infrastructure |
-| **Virus infection** | ⚠️  As an executable file, it can potentially be infected; integrity can be verified before execution (MD5SUM)| ✅ Not directly executable, not executable-file infection |
-| **Repos & updates** | ❌ No native repository/update infrastructure                  | ✅ Native support                         |
 
 ## 3.0 Tests
 If you need to see a real-life using test, please consider the following projects of mine:
