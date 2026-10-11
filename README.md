@@ -103,7 +103,10 @@ Available "**beforeCopy**" modules as default:
 
 It returns true only if the file exists in at least one of the defined paths
 
-	checkForOS: {linux|solaris|posix|windows...}
+	checkForOS:
+		Family: {posix|nt}
+		OsID:   {linux|solaris|...|win32} # optional
+
 
 It returns true only if the target operating system is the defined one
 
