@@ -26,7 +26,7 @@ with the following features:
 5) Self-installing package creation
 
 This version (2.x.x) of Winstall has been developed to provide a multi-platform installer software. It means you can use it to install
-a software application on different operating systems (Solaris, Linux, Winwows, ...) and you can also create a multi-platform package
+your software application on different operating systems (Solaris, Linux, Winwows, ...) and you can also create a multi-platform package
 that is able to install the application on different harware (IA64, ARM, x86...). On the target host, the lonely requirement is to
 have Python3 VM already installed and properly configured.
 
@@ -76,16 +76,15 @@ If you are installing your own software, or creating a software package, then th
 install on the target system. In order to complete this task using the W-install tool, you have to create one configuration file
 in every folder where the files are stored. Every winstall-configuration file has one or many YAML items like the following one:
 
-	- <label>:
-		source:    <file-to-install>
-		target:    <target-path>
-		[custCopy: <module-name>]
-		beforeCopy:
-			- <module-name>: <arguments>
-			...
-		afterCopy:
-			- <module-name>: <arguments>
-			...
+	- source:    <file-to-install>
+	  target:    <target-path>
+	  [custCopy: <module-name>]
+	  beforeCopy:
+	    - <module-name>: <arguments>
+	    ...
+	  afterCopy:
+	    - <module-name>: <arguments>
+	    ...
 
 YAML item properties:
 
@@ -131,6 +130,12 @@ It configures the installed file(s)'s owner
 This action will be performed only if the target OS is a MS Winows one. The module udate/add a register keyword
 
 ### 2.3 How to install a software
+In order to be multi-plaform, this version of winstall uses Python-3.x. For this reason the language's virtual-machine and the
+following libraries must be already installed in the target system.
+
+- python3-yaml
+- python3-configargparse
+
 After you have created all the winstall's configuration-files, you can proceed with your custom software installation, using
 the following command:
 
@@ -142,10 +147,10 @@ The process will perform the following steps:
 1) If a pre-install script (**PREINST**) has been defined, then it will be executed. If it fails the installation process
    will end.
 2) The process will scan the current folder (and its sub-folders recursively) to find all the winstall_conf.yaml files.
-   Using the information it will install every file in the right place with the defined attributes. The target folder of
-   every file depends also by the **PREFIX** configured path. Using "--prefix=<dir>" argument you will overwrite it.
+   Using the information in those files it will install every file in the right place with the defined attributes. The target
+   folder of every file depends also by the **PREFIX** configured path. Using "--prefix=<dir>" argument you will overwrite it.
 3) If a post-install script (**POSTINST**) has been defined, then it will be executed. If it fails the installation process
-   will just print an error message
+   will just print an error message.
 4) The process will store a file with the list of all installed files, in the folder defined by **DATALOGFOLDER** config-key.
    The name of this file will be equal to the (**PRJNAME**) defined project-name 
 
