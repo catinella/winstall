@@ -71,12 +71,20 @@ arguments overwrite the data originally defined in the configuration file. The c
                      you have created
 - **DEPS_LIST**:     List of the dependence so-files to check or "auto" keyword to retrive the list automatically
 
+#### 2.1.1 Configuration file vs winstall file's arguments
+Every keywod defined in the winstall main configuration file can be overwritten by the winstall file's arguments. It allows you
+to test some behaviour or to customize just that software installation, easily. Insted, not all file's arguments can be defined
+in the configuration file (e.g. "--verbose", or "--cmd"...) for evident reasons.
+
 ### 2.2 How to write a sub-folder's configuration file
 If you are installing your own software, or creating a software package, then the first step is collecting the files you want
 install on the target system. In order to complete this task using the W-install tool, you have to create one configuration file
 in every folder where the files are stored. Every winstall-configuration file has one or many YAML items like the following one:
 
-	- source:    <file-to-install>
+	- message:   <text string>
+	  build:     <commands sequence to build files>
+	  clean:     <commands sequence to remove the created files>
+	  source:    <file-to-install>
 	  target:    <target-path>
 	  [custCopy: <module-name>]
 	  beforeCopy:
