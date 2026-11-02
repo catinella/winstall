@@ -41,6 +41,14 @@ import shutil
 from subModules.itemToInstall import itemToInstall
 from pathlib                  import Path
 
+
+FOLDER_CONF_YAML = "winstall_appFolder.yaml"
+MAIN_CONF_YAML   = "/winstall_conf.yaml"
+DEPS_LIST_FILE   = "depsListFile"
+
+#-------------------------------------------------------------------------------------------------------------------------------
+#                                                       F U N C T I O N S
+#-------------------------------------------------------------------------------------------------------------------------------
 def printLine (char='-'):
 	#
 	# Description:
@@ -140,8 +148,7 @@ def checkAndCreateDir (folders, verbose, createFlag = True):
 _DEBUG         = True
 myPwd          = os.path.dirname(os.path.abspath(sys.argv[0]))
 callerPWD      = os.getcwd()
-CONFFILE       = callerPWD + "/winstall_conf.yaml"
-DEPS_LIST_FILE = "depsListFile"
+CONFFILE       = callerPWD + "/" + MAIN_CONF_YAML
 err            = 0
 forbDataInCF   = {"cmd", "verbose"}   # The keywords cannot be defined in the configuration file
 parser         = configargparse.ArgParser(default_config_files=[CONFFILE])
@@ -242,10 +249,10 @@ else:
 		
 		
 	#
-	# Action performing
+	# Action: uninstall
 	#		
 	if (args.cmd == "uninstall"):
-		logFile = "args.dataLogFolder" + "/" + args.prjName"
+		logFile = "args.dataLogFolder" + "/" + args.prjName
 		if (not logFile.is_file()):	
 			print("WARNING! the \"{args.prjName}\" software looks like a not installed one")
 		
@@ -267,7 +274,8 @@ else:
 				if (not file.is_dir()):
 					try:
 						os.remove(file)
-						print("\"{file}\" removed")
+						if (args.verbose):
+							print("\"{file}\" removed")
 						
 					except PermissionError:
 						print(f"ERROR: I am nor allowed to remove the {file} file")
@@ -285,6 +293,8 @@ else:
 			if (ec == 1):		
 				try:
 					os.remove(logFile)
+					if (args.verbose):
+						print(f"The \"{args.prjName}\" software has been removed")
 					
 				except PermissionError:
 					print(f"ERROR: I am nor allowed to remove the {logFile} file")
@@ -293,21 +303,94 @@ else:
 				except OSError as e:
 					print(f"ERROR! I cannot remove the {file} (errno={e.errno}): {e.strerror}")
 					sys.exit(141)
-					
-	if (args.cmd == "uninstall"):
-					
-#with open('config.yaml', 'r') as f:
-#    config = yaml.safe_load(f)
-#
-#for item in config:
-#	try:
-#		obj = itemToInstall(item)
-#
-#	except ValueError as errstr:
-#		print(errstr)
-#
-#	else:
-#		obj.preInstallChecks()
-#		obj.postInstallActions()
-#		obj.install()
+			
+			#---
+		#---
+		
+	#
+	# Action: install, pkg, build, clean
+	#		
+	else:
+		# TODO: Self calculated version number
 
+		if (args.cmd == "install"):
+			# pre-installation script execution
+
+		if (args.verbose)
+			printTitle("Collecting data step..." 2)
+
+		for file in Path(callerPWD).rglob(FOLDER_CONF_YAML):
+			try:
+				os.chdir(file.parent)
+				if (args.verbose)
+					printTitle(("Entering in the \"" + file.parent + "\" folder") 2)
+
+			except OSError as e:
+				print(f"ERROR! I cannot change directory: {e}")
+				sys.exit(143)
+
+			try:
+				# ASCII file loading
+				fh = open(FOLDER_CONF_YAML, 'r')
+				
+			except PermissionError:
+				print(f"ERROR: I am nor allowed to read the {FOLDER_CONF_YAML} file")
+				sys.exit(145)
+	
+			except OSError as e:
+				print(f"ERROR! I cannot open the {FOLDER_CONF_YAML} file (errno={e.errno}): {e.strerror}")
+				sys.exit(147)
+
+				
+			try:
+				# YAML data loading
+				appConf = yaml.safe_load(fh)
+			
+			envVars = {}
+			
+			for fileSection in appConf:
+				if (fileSection.message != ""):
+					printTitle(fileSection.message, 2)
+					
+				if (args.cmd == "build"):
+					if (fileSection.build != ""):
+						envVars["VERSION"] = VERSION
+						doit(envVars, fileSection.build)
+					
+				if (args.cmd == "clean"):
+					if (fileSection.clean != ""):
+						doit(envVars, fileSection.clean)
+				
+				if (args.cmd == "install" or args.cmd == "pckg"):
+					# Required dependences list
+					if (fileSection.version == "auto"):
+						# TODO: self-calculation version procedure
+	
+					# TODO: beforeCopy section
+					
+					# TODO: File copying procedure
+
+					# TODO: update the installed file list
+
+					# TODO: afterCopy section
+					
+			# -- files installation is completed ---
+			
+		# --- All sources tree has been analyzed
+			
+		if (args.cmd == "pkg"):
+			if (args.verbose):
+				printTitle("pkg construction..." 2)
+				
+		elif (args.cmd == "install"):
+			# TODO: close the software's log file
+		
+			if (args.postInstScript != ""):
+				# TODO: Post-installation script execution
+					
+			if (args.verbose)
+				print(f"The {args.prjName} software has been correctly installed")
+				
+	# --- install, pkg, build, and clean options
+
+os.exit(err)
