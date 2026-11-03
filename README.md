@@ -47,29 +47,29 @@ As you can see in the previous section, you can drive the file installation (or 
 arguments. But you can also use the winstall's configuration file (**winstall_conf.yaml**). Anyway, remember that the command-line
 arguments overwrite the data originally defined in the configuration file. The configuration file must respect the following syntax:
 
-	PRJNAME:       <string>
-	PREINST:       <exec-file>
-	POSTINST:      <exec-file>
-	PREFIX:        <folder>
-	DATALOGFOLDER: <folder>
-	TMPFOLDER:     <folder>
-	VERSION:       {auto|<n>.<n>.<n>}
-	DEPS_LIST:     {auto|<file.so>...}
+	prjName:        <string>
+	preInstScript:  <exec-file>
+	postInstScript: <exec-file>
+	prefix:         <folder>
+	dataLogFolder:  <folder>
+	tmpFolder:      <folder>
+	version:        {auto|<n>.<n>.<n>}
+	depsList:       {auto|<file.so>...}
 
-- **PRJNAME**:       Name of the software. It is used for the filename used to remove the installed files and for the software
-                     package filename
-- **PREINST**:       Pre-installation step script. The script to execute before the file installation. If it fails then no files
-                     will be installed
-- **POSTINST**:      Post-installation step script. This script is executed after the file copying step. If it fails then
-                     a warning message will be shown on the terminal
-- **PREFIX**:        Installed files path prefix. Every installed file will be stored in a sub-folder of this defined prefix
-                     (eg. for PREFIX=/usr/local, /bin/foo.bin --> /usr/local/bin/foo.bin)
-- **DATALOGFOLDER**: This is the folder where the process will store all information to remove every software installed by
-                     winstall
-- **TMPFOLDER**:     A temporary folder used by the winstall process to store the collected files
-- **VERSION**:       Project software version. If you set it to "auto" then the version will be calculated using GIT and the tags
-                     you have created
-- **DEPS_LIST**:     List of the dependence so-files to check or "auto" keyword to retrive the list automatically
+- **prjName**:        Name of the software. It is used for the filename used to remove the installed files and for the software
+                      package filename
+- **preInstScript**:  Pre-installation step script. The script to execute before the file installation. If it fails then no files
+                      will be installed
+- **postInstScript**: Post-installation step script. This script is executed after the file copying step. If it fails then
+                      a warning message will be shown on the terminal
+- **prefix**:         Installed files path prefix. Every installed file will be stored in a sub-folder of this defined prefix
+                      (eg. for PREFIX=/usr/local, /bin/foo.bin --> /usr/local/bin/foo.bin)
+- **dataLogFolder**:  This is the folder where the process will store all information to remove every software installed by
+                      winstall
+- **tmpFolder**:      A temporary folder used by the winstall process to store the collected files
+- **version**:        Project software version. If you set it to "auto" then the version will be calculated using GIT and the tags
+                      you have created
+- **depsList**:       List of the dependence so-files to check or "auto" keyword to retrive the list automatically
 
 #### 2.1.1 Configuration file vs winstall file's arguments
 Every keywod defined in the winstall main configuration file can be overwritten by the winstall file's arguments. It allows you
