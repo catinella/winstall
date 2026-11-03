@@ -43,7 +43,7 @@ from pathlib                  import Path
 
 
 FOLDER_CONF_YAML = "winstall_appFolder.yaml"
-MAIN_CONF_YAML   = "/winstall_conf.yaml"
+MAIN_CONF_YAML   = "winstall_conf.yaml"
 DEPS_LIST_FILE   = "depsListFile"
 
 #-------------------------------------------------------------------------------------------------------------------------------
@@ -116,7 +116,7 @@ def checkAndCreateDir (folders, verbose, createFlag = True):
 	#	
 	ec = 1
 	if (verbose == True):
-		printTitle("Checking for the required directories", 2):
+		printTitle("Checking for the required directories", 2)
 		
 	for item in folders:
 		path = Path(item)
@@ -203,6 +203,12 @@ parser.add_argument(
 	help               = 'Post files installation script'
 )
 
+parser.add_argument(
+	"--depsList",
+	default            = "",
+	help               = "List of dependences"
+)
+
 
 args = parser.parse_args()
 
@@ -231,7 +237,7 @@ else:
 	#
 	# Initialization
 	#
-	if (args.cmd = "install"):
+	if (args.cmd == "install"):
 		if (checkAndCreateDir({args.prefix, args.tmpFolder, args.dataLogFolder}, args.verbose) != 1):
 			sys.exit(129)
 			
@@ -252,9 +258,9 @@ else:
 	# Action: uninstall
 	#		
 	if (args.cmd == "uninstall"):
-		logFile = "args.dataLogFolder" + "/" + args.prjName
+		logFile = Path(args.dataLogFolder + "/" + args.prjName)
 		if (not logFile.is_file()):	
-			print("WARNING! the \"{args.prjName}\" software looks like a not installed one")
+			print(f"WARNING! the \"{args.prjName}\" software looks like a not installed one")
 		
 		else:
 			try:
@@ -269,13 +275,16 @@ else:
 				sys.exit(137)
 			
 			ec = 1
-			while (not fh.eof()):
-				file = Path(fh.readlines())
+			filesList = fh.readlines();
+			
+			for item in filesList:
+				file = Path(item.strip())
+				
 				if (not file.is_dir()):
 					try:
 						os.remove(file)
 						if (args.verbose):
-							print("\"{file}\" removed")
+							print(f"\"{file}\" removed")
 						
 					except PermissionError:
 						print(f"ERROR: I am nor allowed to remove the {file} file")
@@ -316,14 +325,14 @@ else:
 		if (args.cmd == "install"):
 			# pre-installation script execution
 
-		if (args.verbose)
-			printTitle("Collecting data step..." 2)
+		if (args.verbose):
+			printTitle("Collecting data step...", 2)
 
 		for file in Path(callerPWD).rglob(FOLDER_CONF_YAML):
 			try:
 				os.chdir(file.parent)
-				if (args.verbose)
-					printTitle(("Entering in the \"" + file.parent + "\" folder") 2)
+				if (args.verbose):
+					printTitle(f("Entering in the \"{file.parent}\" folder"), 2)
 
 			except OSError as e:
 				print(f"ERROR! I cannot change directory: {e}")
@@ -346,6 +355,18 @@ else:
 				# YAML data loading
 				appConf = yaml.safe_load(fh)
 			
+			except yaml.YAMLError as e:
+				print(f"ERROR! Wrong or unsupported YAML syntax in the \"{file}\" file: {e}")
+				sys.exit(149)
+				
+			except UnicodeDecodeError:
+				print(f"ERROR! Character decoding failed in the \"{file}\" file") 
+				sys.exit(151)
+				
+			except OSError as e:
+				print(f"ERROR! Text to YAML interpretation failed (errno={e.errno}): {e.strerror}")
+				sys.exit(153)
+				
 			envVars = {}
 			
 			for fileSection in appConf:
@@ -361,10 +382,7 @@ else:
 					if (fileSection.clean != ""):
 						doit(envVars, fileSection.clean)
 				
-				if (args.cmd == "install" or args.cmd == "pckg"):
-					# Required dependences list
-					if (fileSection.version == "auto"):
-						# TODO: self-calculation version procedure
+				if (args.cmd == "install" or args.cmd == "pkg"):
 	
 					# TODO: beforeCopy section
 					
@@ -380,7 +398,7 @@ else:
 			
 		if (args.cmd == "pkg"):
 			if (args.verbose):
-				printTitle("pkg construction..." 2)
+				printTitle("pkg construction...", 2)
 				
 		elif (args.cmd == "install"):
 			# TODO: close the software's log file
@@ -388,9 +406,9 @@ else:
 			if (args.postInstScript != ""):
 				# TODO: Post-installation script execution
 					
-			if (args.verbose)
+			if (args.verbose):
 				print(f"The {args.prjName} software has been correctly installed")
 				
 	# --- install, pkg, build, and clean options
 
-os.exit(err)
+sys.exit(err)
