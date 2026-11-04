@@ -49,6 +49,25 @@ DEPS_LIST_FILE   = "depsListFile"
 #-------------------------------------------------------------------------------------------------------------------------------
 #                                                       F U N C T I O N S
 #-------------------------------------------------------------------------------------------------------------------------------
+def sysMessage (message, errorCode, exitFlag = True):
+	#
+	# Description:
+	#	It prints a (error, warning...) status message and stops the process if the argument defined errorCode's value
+	#	defines the event as an error and the exitFlag is set to true value
+	#
+	if (errorCode > 127):
+		symbol = "ERROR!"
+	elif (errorCode > 31):
+		symbol = "WARNING!"
+	else:
+		symbol = "!"
+	
+	print(f"{symbol} {message}", file=sys.stderr)
+	if (exitFlag and errorCode > 127):
+		sys.exit(errorCode)
+		
+	return
+	
 def printLine (char='-'):
 	#
 	# Description:
@@ -91,13 +110,13 @@ def checkForForbiddenData (yfile, forbKeys):
 		fh.close()
 
 	except FileNotFoundError:
-		print(f"ERROR! {yfile} configuration file not found")
+		sysMessage(f"{yfile} configuration file not found", 128, False)
 		err = 0
 
 	if (err == 1 and config != None):
 		for item in forbKeys:
 			if (item in config):
-				print(f"ERROR! You cannot define \"{item}\" keyword in the configuration file")
+				sysMessage(f"You cannot define \"{item}\" keyword in the configuration file", 128, False)
 				err = 0
 				break
 	
@@ -128,11 +147,11 @@ def checkAndCreateDir (folders, verbose, createFlag = True):
 						print(f"\"{item}\" folder has been created")
 	
 				except PermissionError:
-					print(f"ERROR: I am nor allowed to create the {item} folder")
+					sysMessage(f"I am nor allowed to create the {item} folder", 128, False)
 					ec = 0
 	
 				except OSError as e:
-					print(f"Errore {e.errno}: {e.strerror}")
+					sysMessage(f"{e.errno}: {e.strerror}", 128, False)
 					ec = 0
 			else:
 				ec = 0
@@ -142,6 +161,28 @@ def checkAndCreateDir (folders, verbose, createFlag = True):
 			
 	return(ec)
 
+def getRightTarget (yamlDiz):
+	#
+	# Description:
+	#	It returns the right target to use for the current OS
+	#
+	myTgt = ""
+	
+	# TODO: target section acknowledge
+	# TODO: Loop until found != true
+	# TODO: Consider the os-id field
+
+	return(myTgt)
+	
+def fileGlue (patha, pathb):
+	#
+	# Description:
+	#	It glues the two argument defined paths considering the current OS
+	#
+	gpath = ""
+	
+	return(gpath)
+	
 #-------------------------------------------------------------------------------------------------------------------------------
 #                                                      M A I N 
 #-------------------------------------------------------------------------------------------------------------------------------
@@ -213,7 +254,7 @@ parser.add_argument(
 args = parser.parse_args()
 
 if (args.prjName == "" and (args.cmd == "install" or args.cmd == "uninstall")):
-	print("ERROR! undefined project name")
+	sysMessage("undefined project name", 129)
 
 
 else:
@@ -239,7 +280,7 @@ else:
 	#
 	if (args.cmd == "install"):
 		if (checkAndCreateDir({args.prefix, args.tmpFolder, args.dataLogFolder}, args.verbose) != 1):
-			sys.exit(129)
+			sys.exit(131)
 			
 	elif (args.cmd == "pkg"):
 		if (checkAndCreateDir({args.prefix, args.tmpFolder, args.dataLogFolder}, args.verbose) != 1):
@@ -251,7 +292,7 @@ else:
 
 	elif (args.cmd == "uninstall"):
 		if (checkAndCreateDir({args.dataLogFolder}, args.verbose, False) != 1):
-			sys.exit(133)
+			sys.exit(131)
 		
 		
 	#
@@ -267,12 +308,10 @@ else:
 				fh = open(logFile , 'r')
 			
 			except PermissionError:
-				print(f"ERROR: I am nor allowed to read the {logFile} file")
-				sys.exit(135)
+				sysMessage(f"I am nor allowed to read the {logFile} file", 135)
 	
 			except OSError as e:
-				print(f"ERROR! I cannot open the {logFile} file (errno={e.errno}): {e.strerror}")
-				sys.exit(137)
+				sysMessage(f"I cannot open the {logFile} file (errno={e.errno}): {e.strerror}", 137)
 			
 			ec = 1
 			filesList = fh.readlines();
@@ -287,15 +326,15 @@ else:
 							print(f"\"{file}\" removed")
 						
 					except PermissionError:
-						print(f"ERROR: I am nor allowed to remove the {file} file")
+						sysMessage(f"I am nor allowed to remove the {file} file", 128, False)
 						ec = 0
 						
 					except FileNotFoundError:
-						print(f"WARNING! The \"{file}\" file does not exist")
+						sysMessage(f"The \"{file}\" file does not exist", 32)
 						ec = 0
 						
 					except OSError as e:
-						print(f"ERROR! I cannot remove the {file} (errno={e.errno}): {e.strerror}")
+						sysMessage(f"I cannot remove the {file} (errno={e.errno}): {e.strerror}", 128, False)
 						ec = 0
 			fh.close()
 					
@@ -306,12 +345,10 @@ else:
 						print(f"The \"{args.prjName}\" software has been removed")
 					
 				except PermissionError:
-					print(f"ERROR: I am nor allowed to remove the {logFile} file")
-					sys.exit(139)
+					sysMessage(f"I am not allowed to remove the {logFile} file", 139)
 
 				except OSError as e:
-					print(f"ERROR! I cannot remove the {file} (errno={e.errno}): {e.strerror}")
-					sys.exit(141)
+					sysMessage(f"I cannot remove the {file} (errno={e.errno}): {e.strerror}", 141)
 			
 			#---
 		#---
@@ -320,80 +357,120 @@ else:
 	# Action: install, pkg, build, clean
 	#		
 	else:
+		IF_RepoFile = ""
+		
 		# TODO: Self calculated version number
 
 		if (args.cmd == "install"):
 			# pre-installation script execution
+			
+			try:
+				myFile = fileGlue(args.dataLogFolder, args.prjName)
+				IF_RepoFile = open(myFile, 'w')
 
+			except PermissionError:
+				sysMessage(f"I am not allowed to write the {myFile} file", 143)
+	
+			except OSError as e:
+				sysMessage(f"I cannot open the {myFile} file (errno={e.errno}): {e.strerror}", 143)
+				
+				
 		if (args.verbose):
 			printTitle("Collecting data step...", 2)
 
 		for file in Path(callerPWD).rglob(FOLDER_CONF_YAML):
 			try:
+				# Sub-folder entering
 				os.chdir(file.parent)
 				if (args.verbose):
-					printTitle(f("Entering in the \"{file.parent}\" folder"), 2)
+					printTitle(f"Entering in the \"{file.parent}\" folder", 2)
 
 			except OSError as e:
-				print(f"ERROR! I cannot change directory: {e}")
-				sys.exit(143)
+				sysMessage(f"I cannot change directory: {e}", 143)
+
 
 			try:
 				# ASCII file loading
 				fh = open(FOLDER_CONF_YAML, 'r')
 				
 			except PermissionError:
-				print(f"ERROR: I am nor allowed to read the {FOLDER_CONF_YAML} file")
-				sys.exit(145)
+				sysMessage(f"I am nor allowed to read the {FOLDER_CONF_YAML} file", 145)
 	
 			except OSError as e:
-				print(f"ERROR! I cannot open the {FOLDER_CONF_YAML} file (errno={e.errno}): {e.strerror}")
-				sys.exit(147)
+				sysMessage(f"I cannot open the {FOLDER_CONF_YAML} file (errno={e.errno}): {e.strerror}", 147)
 
 				
 			try:
+				#
 				# YAML data loading
+				#
+				#	[!] This YAML section can contains many sub-sections. Every one of them is responible for a
+				#	    single file or a files-group installation
+				#
 				appConf = yaml.safe_load(fh)
 			
 			except yaml.YAMLError as e:
-				print(f"ERROR! Wrong or unsupported YAML syntax in the \"{file}\" file: {e}")
-				sys.exit(149)
+				sysMessage(f"Wrong or unsupported YAML syntax in the \"{file}\" file: {e}", 149)
 				
 			except UnicodeDecodeError:
-				print(f"ERROR! Character decoding failed in the \"{file}\" file") 
-				sys.exit(151)
+				sysMessage(f"Character decoding failed in the \"{file}\" file", 151) 
 				
 			except OSError as e:
-				print(f"ERROR! Text to YAML interpretation failed (errno={e.errno}): {e.strerror}")
-				sys.exit(153)
+				sysMessage(f"Text to YAML interpretation failed (errno={e.errno}): {e.strerror}", 153)
 				
 			envVars = {}
 			
 			for fileSection in appConf:
-				if (fileSection.message != ""):
-					printTitle(fileSection.message, 2)
-					
+				# Message is an otional field
+				if ("message" in fileSection):
+					printTitle(fileSection["message"], 2)
+						
 				if (args.cmd == "build"):
-					if (fileSection.build != ""):
+					if ("build" in fileSection):
 						envVars["VERSION"] = VERSION
-						doit(envVars, fileSection.build)
-					
+						doit(envVars, fileSection["build"])
+					elif (args.verbose):
+						sysMessage("Nothing to do" 32)
+						
 				if (args.cmd == "clean"):
-					if (fileSection.clean != ""):
-						doit(envVars, fileSection.clean)
+					if ("clean" in fileSection):
+						doit(envVars, fileSection["clean"])
+					elif (args.verbose):
+						sysMessage("Nothing to do" 32)
 				
 				if (args.cmd == "install" or args.cmd == "pkg"):
+						
+					if ("target" in fileSection and "source" in fileSection):
+						# beforeCopy section
+						if ("beforeCopy" in fileSection):
+							# TODO: bcpFatory
+						
+						#
+						# File copying procedure
+						#
+						source = fileSection["source"]
+						target = getRightTarget(fileSection["target"])
+						if (target != ""):
+							target = fileGlue(PREFIX, target)
+							shutil.copy2(source, target)
+						else:
+							sysMessage("Undefined target folder", 157)
+							
+						
+						# Installed files list updating...
+						if (args.cmd == "install"):
+							IF_RepoFile.write(f"{target}\n")
+							IF_RepoFile.flush()
 	
-					# TODO: beforeCopy section
+						# afterCopy section
+						if ("beforeCopy" in fileSection):
+							# TODO: acpFatory
+							
+					else:
+						sysMessage(f"Required fields (source, target) missing in {file} YAML file", 155)
 					
-					# TODO: File copying procedure
-
-					# TODO: update the installed file list
-
-					# TODO: afterCopy section
-					
-			# -- files installation is completed ---
-			
+				# --- files installation is completed ---
+			# --- YAML sub-section terminated
 		# --- All sources tree has been analyzed
 			
 		if (args.cmd == "pkg"):
