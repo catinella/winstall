@@ -85,7 +85,12 @@ in every folder where the files are stored. Every winstall-configuration file ha
 	  build:     <commands sequence to build files>
 	  clean:     <commands sequence to remove the created files>
 	  source:    <file-to-install>
-	  target:    <target-path>
+	  target:    
+	    - path:  <target-path>                             # eg. /bin
+	      os-id: {linux|solaris|...|win32} | {posix|nt}    # eg. posix
+	    - path:  <target-path>                             # eg. C:/Program Files
+	      os-id: {linux|solaris|...|win32} | {posix|nt}    # eg. nt
+	    ...
 	  [custCopy: <module-name>]
 	  beforeCopy:
 	    - <module-name>: <arguments>
@@ -104,26 +109,15 @@ YAML item properties:
 
 Available "**beforeCopy**" modules as default:
 
-	fileExixts: <filename>
-		- <path1>
-		[- <path2> ]
-
-It returns true only if the file exists in at least one of the defined paths
-
-	checkForOS:
-		Family: {posix|nt}
-		OsID:   {linux|solaris|...|win32} # optional
-
-
-It returns true only if the target operating system is the defined one
-
 	libExists: <library-name>
 
 It returns true only if the library is already installed on the target system
 
 Available "**afterCopy**" modules as default:
 
-	setPermissions: <n><n><n><n>
+	setPermissions:
+	  - setting: <n><n><n><n>
+	  - os-id:   {linux|solaris|...|win32} | {posix|nt}
 
 It sets the installed file(s) permissions. The argument is defined using POSIX syntax
 
