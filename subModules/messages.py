@@ -14,11 +14,27 @@
 # Description:
 #	This module provides all functions used to generate messages, print banners.....
 #	
-#	
+#	ANSI colors codes:
+#		+------+---------+
+#		| code |  color  |
+#		+------+---------+
+#		| 30   | Nero    |
+#		| 31   | Rosso   |
+#		| 32   | Verde   |
+#		| 33   | Giallo  |
+#		| 34   | Blu     |
+#		| 35   | Magenta |
+#		| 36   | Ciano   |
+#		| 37   | Bianco  |
+#		| 0    | Reset   |
+#		+------+---------+
+#
 #-------------------------------------------------------------------------------------------------------------------------------
 
 import shutil
 import sys
+
+from errorCodes import *
 
 def sysMessage (message, errorCode, exitFlag = True):
 	#
@@ -26,14 +42,18 @@ def sysMessage (message, errorCode, exitFlag = True):
 	#	It prints a (error, warning...) status message and stops the process if the argument defined errorCode's value
 	#	defines the event as an error and the exitFlag is set to true value
 	#
-	if (errorCode > 127):
+	colorCode = 0
+	if (errorCode > WIN_LAST_WARNING):
+		colorCode = 31
 		symbol = "ERROR!"
-	elif (errorCode > 31):
+	elif (errorCode >WIN_LAST_SUCCESS):
+		colorCode = 33
 		symbol = "WARNING!"
 	else:
-		symbol = "!"
+		colorCode = 36
+		symbol = "INFO"
 	
-	print(f"{symbol} {message}", file=sys.stderr)
+	print(f"[\033[{colorCode}m{symbol}\033[0m] {message}", file=sys.stderr)
 	if (exitFlag and errorCode > 127):
 		sys.exit(errorCode)
 		
