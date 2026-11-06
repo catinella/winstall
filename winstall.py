@@ -36,8 +36,8 @@ import os
 import sys
 import yaml
 import configargparse
-import shutil
 
+from subModules.messages      import *
 from subModules.itemToInstall import itemToInstall
 from pathlib                  import Path
 
@@ -49,78 +49,6 @@ DEPS_LIST_FILE   = "depsListFile"
 #-------------------------------------------------------------------------------------------------------------------------------
 #                                                       F U N C T I O N S
 #-------------------------------------------------------------------------------------------------------------------------------
-def sysMessage (message, errorCode, exitFlag = True):
-	#
-	# Description:
-	#	It prints a (error, warning...) status message and stops the process if the argument defined errorCode's value
-	#	defines the event as an error and the exitFlag is set to true value
-	#
-	if (errorCode > 127):
-		symbol = "ERROR!"
-	elif (errorCode > 31):
-		symbol = "WARNING!"
-	else:
-		symbol = "!"
-	
-	print(f"{symbol} {message}", file=sys.stderr)
-	if (exitFlag and errorCode > 127):
-		sys.exit(errorCode)
-		
-	return
-	
-def printLine (char='-'):
-	#
-	# Description:
-	#	It prints a simple ASCII line
-	#
-	cols = shutil.get_terminal_size().columns
-	for x in range(cols):
-		print(char, end="")
-	print("");
-
-
-def printTitle (string, level):
-	#
-	# Description:
-	#
-	cols = shutil.get_terminal_size().columns
-	match level:
-		case 0:
-			print(string)
-
-		case 1:
-			string = string.upper();
-			printLine()
-			print(string.center(cols))
-			printLine()
-
-		case 2:
-			print("[*] " + string);
-
-
-def checkForForbiddenData (yfile, forbKeys):
-	#
-	# Description:
-	#	This function checks for the forbidden-keys in the YAML file. If at least one keyword is found then the procedure
-	#	ends with error code
-	err = 1
-	try:
-		fh = open(yfile, 'r')
-		config = yaml.safe_load(fh)
-		fh.close()
-
-	except FileNotFoundError:
-		sysMessage(f"{yfile} configuration file not found", 128, False)
-		err = 0
-
-	if (err == 1 and config != None):
-		for item in forbKeys:
-			if (item in config):
-				sysMessage(f"You cannot define \"{item}\" keyword in the configuration file", 128, False)
-				err = 0
-				break
-	
-	return(err)
 
 
 def checkAndCreateDir (folders, verbose, createFlag = True):
@@ -192,66 +120,6 @@ callerPWD      = os.getcwd()
 CONFFILE       = callerPWD + "/" + MAIN_CONF_YAML
 err            = 0
 forbDataInCF   = {"cmd", "verbose"}   # The keywords cannot be defined in the configuration file
-parser         = configargparse.ArgParser(default_config_files=[CONFFILE])
-
-if (checkForForbiddenData(CONFFILE, forbDataInCF) != 1):
-	sys.exit(127)
-
-parser.add_argument(
-	"--cmd", 
-	required           = True, 
-	choices            = ["install", "uninstall", "build", "clean", "pkg"]
-)
-parser.add_argument(
-	"--verbose", 
-	action             = "store_true",
-	default            = False,
-	help               = "Enable verbose output"
-)
-parser.add_argument(
-	"--prefix",
-	default            = "/usr/local",
-	help               = "Installation prefix"
-)
-parser.add_argument(
-	"--tmpFolder",
-	default            = "/tmp/winstall",
-	help               = "Temporary folder"
-)
-parser.add_argument(
-	"--dataLogFolder",
-	default            = "/var/local/winstall",
-	help               = "System folder for installed logs"
-)
-parser.add_argument(
-	"--prjName",
-	default            = "",
-	help               = "Project name"
-)
-parser.add_argument(
-	"--version",
-	default            = "unknown",
-	help               = 'Project version (n.n.n) or "auto"'
-)
-parser.add_argument(
-	"--preInstScript",
-	default            = "",
-	help               = 'Pre files installation script'
-)
-parser.add_argument(
-	"--postInstScript",
-	default            = "",
-	help               = 'Post files installation script'
-)
-
-parser.add_argument(
-	"--depsList",
-	default            = "",
-	help               = "List of dependences"
-)
-
-
-args = parser.parse_args()
 
 if (args.prjName == "" and (args.cmd == "install" or args.cmd == "uninstall")):
 	sysMessage("undefined project name", 129)
@@ -430,13 +298,13 @@ else:
 						envVars["VERSION"] = VERSION
 						doit(envVars, fileSection["build"])
 					elif (args.verbose):
-						sysMessage("Nothing to do" 32)
+						sysMessage("Nothing to do", 32)
 						
 				if (args.cmd == "clean"):
 					if ("clean" in fileSection):
 						doit(envVars, fileSection["clean"])
 					elif (args.verbose):
-						sysMessage("Nothing to do" 32)
+						sysMessage("Nothing to do", 32)
 				
 				if (args.cmd == "install" or args.cmd == "pkg"):
 						
@@ -444,6 +312,7 @@ else:
 						# beforeCopy section
 						if ("beforeCopy" in fileSection):
 							# TODO: bcpFatory
+							pass
 						
 						#
 						# File copying procedure
@@ -463,9 +332,9 @@ else:
 							IF_RepoFile.flush()
 	
 						# afterCopy section
-						if ("beforeCopy" in fileSection):
+						if ("afterCopy" in fileSection):
 							# TODO: acpFatory
-							
+							pass
 					else:
 						sysMessage(f"Required fields (source, target) missing in {file} YAML file", 155)
 					
@@ -482,7 +351,8 @@ else:
 		
 			if (args.postInstScript != ""):
 				# TODO: Post-installation script execution
-					
+				pass
+				
 			if (args.verbose):
 				print(f"The {args.prjName} software has been correctly installed")
 				
