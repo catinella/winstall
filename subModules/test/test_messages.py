@@ -34,3 +34,11 @@ print("")
 print("Info message will be printed:")
 sysMessage ("Ok but consider this", 1, exitFlag = False)
 print("")
+
+print("Title H1")
+printTitle("Main title bla bla...", 1)
+print("")
+
+print("Title H2")
+printTitle("Sub-title bla bla...", 2)
+print("")

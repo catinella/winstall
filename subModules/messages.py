@@ -36,6 +36,18 @@ import sys
 
 from errorCodes import *
 
+_ttyEffect_bold    = '\033[1m'
+_ttyEffect_reset   = '\033[0m'
+
+_ttyEffect_black   = '\033[30m'
+_ttyEffect_red     = '\033[31m'
+_ttyEffect_green   = '\033[32m'
+_ttyEffect_yellow  = '\033[33m'
+_ttyEffect_blue    = '\033[34m'
+_ttyEffect_magenta = '\033[35m'
+_ttyEffect_cyan    = '\033[36m'
+_ttyEffect_white   = '\033[37m'
+
 def sysMessage (message, errorCode, exitFlag = True):
 	#
 	# Description:
@@ -44,16 +56,16 @@ def sysMessage (message, errorCode, exitFlag = True):
 	#
 	colorCode = 0
 	if (errorCode > WIN_LAST_WARNING):
-		colorCode = 31
+		colorCode = _ttyEffect_red
 		symbol = "ERROR!"
 	elif (errorCode >WIN_LAST_SUCCESS):
-		colorCode = 33
+		colorCode = _ttyEffect_yellow
 		symbol = "WARNING!"
 	else:
-		colorCode = 36
+		colorCode = _ttyEffect_cyan
 		symbol = "INFO"
 	
-	print(f"[\033[{colorCode}m{symbol}\033[0m] {message}", file=sys.stderr)
+	print(f"[\033[{colorCode}m{symbol}{_ttyEffect_reset} {message}", file=sys.stderr)
 	if (exitFlag and errorCode > 127):
 		sys.exit(errorCode)
 		
@@ -81,9 +93,10 @@ def printTitle (string, level):
 
 		case 1:
 			string = string.upper();
+			string = _ttyEffect_bold + string + _ttyEffect_reset
 			printLine()
 			print(string.center(cols))
 			printLine()
 
 		case 2:
-			print("[*] " + string);
+			print(f"[{_ttyEffect_bold}*{_ttyEffect_reset}] {string}")
