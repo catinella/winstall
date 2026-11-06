@@ -14,21 +14,6 @@
 # Description:
 #	This module provides all functions used to generate messages, print banners.....
 #	
-#	ANSI colors codes:
-#		+------+---------+
-#		| code |  color  |
-#		+------+---------+
-#		| 30   | Nero    |
-#		| 31   | Rosso   |
-#		| 32   | Verde   |
-#		| 33   | Giallo  |
-#		| 34   | Blu     |
-#		| 35   | Magenta |
-#		| 36   | Ciano   |
-#		| 37   | Bianco  |
-#		| 0    | Reset   |
-#		+------+---------+
-#
 #-------------------------------------------------------------------------------------------------------------------------------
 
 import shutil
